@@ -38,6 +38,19 @@ type User struct {
 	Manager      *User        `gorm:"foreignKey:ManagerID" json:"manager,omitempty"`
 	
 	LeaveBalance float64      `gorm:"default:20.0" json:"leave_balance"`
+	
+	// Passport and Personal Information
+	PassportSeries     string     `json:"passport_series"`
+	PassportNumber     string     `json:"passport_number"`
+	PassportIssuedBy   string     `json:"passport_issued_by"`
+	PassportIssuedDate *time.Time `json:"passport_issued_date"`
+	BirthDate          *time.Time `json:"birth_date"`
+	BirthPlace         string     `json:"birth_place"`
+	INN                string     `json:"inn"`
+	SNILS              string     `json:"snils"`
+	Address            string     `json:"address"`
+	Phone              string     `json:"phone"`
+
 	Documents    []Document    `gorm:"foreignKey:UserID" json:"documents"`
 }
 

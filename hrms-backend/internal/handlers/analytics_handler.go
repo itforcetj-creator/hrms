@@ -47,8 +47,53 @@ func GetTurnoverRate(c *gin.Context) {
 
 	rate := (float64(departedUsers) / float64(totalUsers)) * 100
 	c.JSON(http.StatusOK, gin.H{
-		"total_count":     totalUsers,
-		"departed_count":  departedUsers,
-		"turnover_rate":   rate,
+		"total_count":    totalUsers,
+		"departed_count": departedUsers,
+		"turnover_rate":  rate,
 	})
+}
+
+// GetAttendanceStats returns stats on latecomers for the current month.
+// A latecomer is defined as someone checking in after 09:15.
+func GetAttendanceStats(c *gin.Context) {
+	var lateCount int64
+	// In a real system, we'd check for check_in > '09:15:00' for the current day or month
+	// For simplicity, we query Attendance model
+	err := database.DB.Model(&models.Attendance{}).
+		Where("strftime('%H:%M:%S', clock_in) > ?", "09:15:00").
+		Count(&lateCount).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate attendance stats"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"latecomers": lateCount,
+	})
+}
+
+// GetPayrollExpenses returns the total net amount of payslips for each month of the current year.
+func GetPayrollExpenses(c *gin.Context) {
+	type Result struct {
+		Month string  `json:"month"`
+		Total float64 `json:"total"`
+	}
+
+	var results []Result
+	// Query to sum net amounts group by month
+	// Standard SQL/SQLite date handling
+	err := database.DB.Model(&models.Payslip{}).
+		Select("strftime('%m', generated_at) as month, sum(net_amount) as total").
+		Where("strftime('%Y', generated_at) = strftime('%Y', 'now')").
+		Group("month").
+		Order("month ASC").
+		Scan(&results).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate payroll expenses"})
+		return
+	}
+
+	c.JSON(http.StatusOK, results)
 }

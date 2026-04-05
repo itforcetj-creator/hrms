@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { FileText, Download, Upload, Search, ShieldCheck, X } from "lucide-react";
+import { FileText, Download, Upload, Search, ShieldCheck, X, Eye } from "lucide-react";
 import { DocumentService } from "@/services/hr.service";
 import { HRDocument } from "@/types/hr";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +12,7 @@ import { UserProfile } from "@/types/auth";
 const DocumentsPage = () => {
   const { user } = useAuth();
   const canViewAll = user?.role === "ADMIN" || user?.role === "HR" || user?.role === "DIRECTOR";
+  const canUseManagedDownload = user?.role === "ADMIN" || user?.role === "HR";
   const canUpload =
     user?.role === "ADMIN" ||
     user?.role === "HR" ||
@@ -132,7 +133,7 @@ const DocumentsPage = () => {
   const handleDownload = async (doc: HRDocument) => {
     setDownloadingId(doc.id);
     try {
-      const blob = canViewAll
+      const blob = canUseManagedDownload
         ? await DocumentService.downloadManaged(doc.id)
         : await DocumentService.download(doc.id);
       const url = window.URL.createObjectURL(blob);
@@ -267,12 +268,21 @@ const DocumentsPage = () => {
                 )}
                 <p className="text-[11px] app-muted mt-1 font-mono">Doc ID #{doc.id}</p>
 
-                <div className="mt-5 pt-4 border-t border-[var(--border)]">
+                <div className="mt-5 pt-4 border-t border-[var(--border)] grid grid-cols-2 gap-2">
+                  <a
+                    href={`/document-preview/${doc.id}?name=${encodeURIComponent(doc.file_name || "")}&managed=${canUseManagedDownload ? "1" : "0"}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 py-2 rounded-xl border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-colors text-sm"
+                  >
+                    <Eye size={14} />
+                    Preview
+                  </a>
                   <button
                     type="button"
                     onClick={() => handleDownload(doc)}
                     disabled={downloadingId === doc.id}
-                    className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-xl border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center gap-2 py-2 rounded-xl border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Download size={14} />
                     {downloadingId === doc.id ? "Downloading..." : "Download"}

@@ -25,10 +25,12 @@ func SetupRoutes(r *gin.Engine) {
 	authGroup.Use(middleware.AuthorizeRole("ADMIN", "HR", "USER", "DEPARTMENT_HEAD", "DIRECTOR"))
 	{
 		authGroup.GET("/me", handlers.GetMe)
+		authGroup.PATCH("/me", handlers.UpdateMe)
 		// Documents
 		authGroup.POST("/documents/upload", handlers.UploadDocument)
 		authGroup.GET("/documents", handlers.GetMyDocuments)
 		authGroup.GET("/documents/:id", handlers.DownloadDocument)
+		authGroup.DELETE("/documents/:id", handlers.DeleteDocument)
 
 		// Leave
 		authGroup.POST("/leave/request", handlers.RequestLeave)
@@ -103,14 +105,18 @@ func SetupRoutes(r *gin.Engine) {
 		hrOps.DELETE("/recruitment/jobs/:id", handlers.DeleteJobOpening)
 		hrOps.GET("/recruitment/jobs/:id/candidates", handlers.GetCandidatesByJob)
 		hrOps.PATCH("/recruitment/candidates/:id/status", handlers.UpdateCandidateStatus)
+		hrOps.GET("/recruitment/candidates/:id/notes", handlers.GetInterviewNotes)
+		hrOps.POST("/recruitment/candidates/:id/notes", handlers.PostInterviewNote)
 		hrOps.POST("/recruitment/hire/:id", handlers.FinalizeHire)
 
 		// Users & Employees
 		hrOps.POST("/users", handlers.CreateUser)
 		hrOps.GET("/users", handlers.GetEmployeeDirectory)
+		hrOps.GET("/users/:id", handlers.GetEmployeeProfile)
 		hrOps.PATCH("/users/:id", handlers.UpdateUser)
 		hrOps.DELETE("/users/:id", handlers.DeleteUser)
 		hrOps.POST("/users/:id/offboard", handlers.OffboardUser)
+		hrOps.GET("/users/:id/contract", handlers.GenerateContract)
 		hrOps.GET("/documents", handlers.GetDocumentsByUsers)
 		hrOps.GET("/documents/:id/download", handlers.DownloadDocument)
 
@@ -127,6 +133,9 @@ func SetupRoutes(r *gin.Engine) {
 		// Payroll Management
 		hrOps.POST("/payroll/generate", handlers.GenerateMonthlyPayslips)
 		hrOps.POST("/payroll/salary", handlers.ManageSalaries)
+		hrOps.POST("/payroll/bonus-penalty", handlers.CreateBonusPenalty)
+		hrOps.GET("/payroll/bonus-penalty", handlers.GetBonusPenalties)
+		hrOps.DELETE("/payroll/bonus-penalty/:id", handlers.DeleteBonusPenalty)
 
 		// Performance Management
 		hrOps.GET("/performance/cycles", handlers.GetReviewCycles)
@@ -141,9 +150,11 @@ func SetupRoutes(r *gin.Engine) {
 
 	// 4. Analytics & Director Group
 	directorGroup := r.Group("/admin/v1/analytics")
-	directorGroup.Use(middleware.AuthorizeRole("ADMIN", "DIRECTOR"))
+	directorGroup.Use(middleware.AuthorizeRole("ADMIN", "DIRECTOR", "HR"))
 	{
 		directorGroup.GET("/headcount", handlers.GetHeadcountStats)
 		directorGroup.GET("/turnover", handlers.GetTurnoverRate)
+		directorGroup.GET("/attendance", handlers.GetAttendanceStats)
+		directorGroup.GET("/expenses", handlers.GetPayrollExpenses)
 	}
 }

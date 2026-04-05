@@ -54,6 +54,8 @@ type Payslip struct {
 	Year        int            `gorm:"not null" json:"year"`
 	NetAmount   float64        `gorm:"not null" json:"net_amount"`
 	Status      PayslipStatus  `gorm:"default:'PENDING'" json:"status"`
+	BonusAmount   float64        `gorm:"default:0" json:"bonus_amount"`
+	PenaltyAmount float64        `gorm:"default:0" json:"penalty_amount"`
 	GeneratedAt time.Time      `json:"generated_at"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`

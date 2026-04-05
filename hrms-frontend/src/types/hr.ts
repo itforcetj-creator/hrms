@@ -2,6 +2,13 @@ import { UserProfile } from "./auth";
 
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
 
+export interface LeaveRequestPayload {
+  type: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+}
+
 export interface LeaveRequest {
   id: number;
   user_id: number;
@@ -38,9 +45,26 @@ export interface Payslip {
   user_id: number;
   month: number;
   year: number;
+  bonus_amount: number;
+  penalty_amount: number;
   net_amount: number;
   status: PayslipStatus;
   generated_at: string;
+}
+
+export type BonusPenaltyType = "BONUS" | "PENALTY";
+
+export interface BonusPenalty {
+  id: number;
+  user_id: number;
+  user?: UserProfile;
+  type: BonusPenaltyType;
+  amount: number;
+  reason: string;
+  date: string;
+  month: number;
+  year: number;
+  created_at: string;
 }
 
 export interface SalaryConfiguration {
@@ -115,6 +139,15 @@ export interface TurnoverStat {
   turnover_rate: number;
 }
 
+export interface AttendanceStat {
+  latecomers: number;
+}
+
+export interface PayrollExpenseStat {
+  month: string;
+  total: number;
+}
+
 // Notifications
 export interface Notification {
   id: number;
@@ -176,6 +209,8 @@ export interface HRDocument {
   file_name: string;
   file_path: string;
   file_type: string;
+  uploaded_by_role?: string;
+  is_contract?: boolean;
   user?: Pick<UserProfile, "id" | "full_name" | "email" | "role">;
   expiry_date?: string | null;
   created_at: string;
@@ -205,11 +240,14 @@ export interface RecruitmentJob {
   id: number;
   title: string;
   description: string;
+  experience_level?: string;
+  salary_range?: string;
   department_id: number;
   department?: DepartmentSummary;
   status: JobOpeningStatus;
   created_at: string;
   applications_count?: number;
+  candidates?: RecruitmentCandidate[];
 }
 
 export interface CreateRecruitmentJobPayload {
@@ -228,12 +266,26 @@ export interface RecruitmentCandidate {
   resume_path: string;
   status: CandidateStatus;
   job_opening_id: number;
-  applied_at?: string;
+  applied_at: string;
 }
+
+// Global aliases for cleaner recruitment components
+export type Job = RecruitmentJob;
+export type Candidate = RecruitmentCandidate;
 
 export interface RecruitmentJobDetailsResponse {
   job: RecruitmentJob;
   candidates: RecruitmentCandidate[];
+}
+
+export interface InterviewNote {
+  id: number;
+  candidate_id: number;
+  interviewer_id: number;
+  interviewer?: Pick<UserProfile, "id" | "full_name" | "email" | "role">;
+  score: number;
+  comments: string;
+  created_at: string;
 }
 
 export interface Department {

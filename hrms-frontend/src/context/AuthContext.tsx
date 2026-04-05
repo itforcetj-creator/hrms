@@ -108,7 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         saveUserToStorage(userData);
       }
       
-      router.push('/dashboard');
+      router.push('/dashboard/profile');
     } catch (error: unknown) {
       throw (
         getErrorResponse(error)?.data?.message ||

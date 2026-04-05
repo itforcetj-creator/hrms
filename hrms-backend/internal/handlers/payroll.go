@@ -48,17 +48,29 @@ func GenerateMonthlyPayslips(c *gin.Context) {
 			Select("COALESCE(SUM(EXTRACT(DAY FROM end_date - start_date) + 1), 0)").
 			Scan(&unpaidLeaveDays)
 
+		// 3. Bonus and Penalties logic
+		var totalBonus, totalPenalty float64
+		tx.Model(&models.BonusPenalty{}).
+			Where("user_id = ? AND month = ? AND year = ? AND type = ?", user.ID, input.Month, input.Year, models.TypeBonus).
+			Select("COALESCE(SUM(amount), 0)").Scan(&totalBonus)
+
+		tx.Model(&models.BonusPenalty{}).
+			Where("user_id = ? AND month = ? AND year = ? AND type = ?", user.ID, input.Month, input.Year, models.TypePenalty).
+			Select("COALESCE(SUM(amount), 0)").Scan(&totalPenalty)
+
 		dailyRate := salary.BaseSalary / 22.0
 		deduction := unpaidLeaveDays * dailyRate
-		netAmount := salary.BaseSalary - deduction
+		netAmount := salary.BaseSalary + totalBonus - totalPenalty - deduction
 
 		payslip := models.Payslip{
-			UserID:      user.ID,
-			Month:       input.Month,
-			Year:        input.Year,
-			NetAmount:   netAmount,
-			Status:      models.PayslipStatusPending,
-			GeneratedAt: time.Now(),
+			UserID:        user.ID,
+			Month:         input.Month,
+			Year:          input.Year,
+			NetAmount:     netAmount,
+			BonusAmount:   totalBonus,
+			PenaltyAmount: totalPenalty,
+			Status:        models.PayslipStatusPending,
+			GeneratedAt:   time.Now(),
 		}
 
 		if err := tx.Create(&payslip).Error; err != nil {

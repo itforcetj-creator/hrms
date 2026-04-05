@@ -1,11 +1,15 @@
 import axiosInstance from '@/lib/axios';
 import { UserProfile } from '@/types/auth';
-import { AuditLog, HeadcountStat, TurnoverStat } from '@/types/hr';
+import { AuditLog, HeadcountStat, TurnoverStat, AttendanceStat, PayrollExpenseStat } from '@/types/hr';
 
 export const AdminService = {
   // User Management
   getUsers: async (params?: { department?: string; search?: string; role?: string }) => {
     const response = await axiosInstance.get<UserProfile[]>('/admin/v1/users', { params });
+    return response.data;
+  },
+  getUserById: async (id: number) => {
+    const response = await axiosInstance.get<UserProfile>(`/admin/v1/users/${id}`);
     return response.data;
   },
   createUser: async (data: Partial<UserProfile> & { password?: string }) => {
@@ -46,6 +50,14 @@ export const AdminService = {
   },
   getTurnoverStats: async () => {
     const response = await axiosInstance.get<TurnoverStat>('/admin/v1/analytics/turnover');
+    return response.data;
+  },
+  getAttendanceStats: async () => {
+    const response = await axiosInstance.get<AttendanceStat>('/admin/v1/analytics/attendance');
+    return response.data;
+  },
+  getPayrollExpenses: async () => {
+    const response = await axiosInstance.get<PayrollExpenseStat[]>('/admin/v1/analytics/expenses');
     return response.data;
   }
 };

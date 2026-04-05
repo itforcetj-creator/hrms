@@ -415,20 +415,82 @@ func ApplyForJob(c *gin.Context) {
 
 // PostInterviewNote adds feedback to a candidate's scorecard.
 func PostInterviewNote(c *gin.Context) {
-	var note models.InterviewNote
 	interviewerID := c.GetUint("user_id")
+	candidateID := uint(parseID(c.Param("id")))
 
-	if err := c.ShouldBindJSON(&note); err != nil {
+	var input struct {
+		CandidateID uint   `json:"candidate_id"`
+		Score       int    `json:"score" binding:"required"`
+		Comments    string `json:"comments" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
-	note.InterviewerID = interviewerID
+	if candidateID == 0 {
+		candidateID = input.CandidateID
+	}
+	if candidateID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "candidate_id is required"})
+		return
+	}
+
+	if input.Score < 1 || input.Score > 5 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "score must be between 1 and 5"})
+		return
+	}
+
+	comments := strings.TrimSpace(input.Comments)
+	if comments == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "comments is required"})
+		return
+	}
+
+	var candidate models.Candidate
+	if err := database.DB.Select("id").First(&candidate, candidateID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Candidate not found"})
+		return
+	}
+
+	note := models.InterviewNote{
+		CandidateID:   candidateID,
+		InterviewerID: interviewerID,
+		Score:         input.Score,
+		Comments:      comments,
+	}
 
 	if err := database.DB.Create(&note).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save note"})
 		return
 	}
 
+	if err := database.DB.Preload("Interviewer").First(&note, note.ID).Error; err != nil {
+		c.JSON(http.StatusCreated, gin.H{"message": "Feedback recorded", "note": note})
+		return
+	}
+
 	c.JSON(http.StatusCreated, gin.H{"message": "Feedback recorded", "note": note})
+}
+
+// GetInterviewNotes returns interview notes for a candidate.
+func GetInterviewNotes(c *gin.Context) {
+	candidateID := uint(parseID(c.Param("id")))
+	if candidateID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid candidate id"})
+		return
+	}
+
+	var notes []models.InterviewNote
+	if err := database.DB.
+		Where("candidate_id = ?", candidateID).
+		Preload("Interviewer").
+		Order("created_at DESC").
+		Find(&notes).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load interview notes"})
+		return
+	}
+
+	c.JSON(http.StatusOK, notes)
 }

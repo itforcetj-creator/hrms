@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { AdminService } from "@/services/admin.service";
 import { UserProfile } from "@/types/auth";
 import { Department, Position } from "@/types/hr";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, UserPlus, MoreVertical, Shield, Mail, Trash2, Edit2, X, Check } from "lucide-react";
+import { Search, UserPlus, Shield, Mail, Trash2, Edit2, X, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const UsersPage = () => {
+  const router = useRouter();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -26,20 +29,20 @@ const UsersPage = () => {
     role: "USER",
     department_id: 0,
     position_id: 0,
-    is_active: true
+    is_active: true,
+    passport_series: "",
+    passport_number: "",
+    passport_issued_by: "",
+    passport_issued_date: "" as string | null,
+    birth_date: "" as string | null,
+    birth_place: "",
+    inn: "",
+    snils: "",
+    address: "",
+    phone: ""
   });
 
-  useEffect(() => {
-    fetchUsers();
-  }, [search]);
-
-  useEffect(() => {
-    if (isModalOpen) {
-      loadFormData();
-    }
-  }, [isModalOpen]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const data = await AdminService.getUsers({ search });
       setUsers(data);
@@ -48,16 +51,15 @@ const UsersPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
-  const loadFormData = async () => {
+  const loadFormData = useCallback(async () => {
     try {
       const [depts, pos] = await Promise.all([
         AdminService.getDepartments(),
         AdminService.getPositions()
       ]);
       setDepartments(depts);
-      // If a department is selected in the form, filter positions
       if (formData.department_id > 0) {
         const filteredPos = pos.filter((p: Position) => p.department_id === formData.department_id);
         setPositions(filteredPos);
@@ -67,7 +69,17 @@ const UsersPage = () => {
     } catch (error) {
       console.error("Failed to load form dependencies", error);
     }
-  };
+  }, [formData.department_id]);
+
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      void loadFormData();
+    }
+  }, [isModalOpen, loadFormData]);
 
   const handleOpenModal = (user: UserProfile | null = null) => {
     if (user) {
@@ -75,11 +87,21 @@ const UsersPage = () => {
       setFormData({
         full_name: user.full_name || "",
         email: user.email || "",
-        password: "", // Don't show password
+        password: "", 
         role: user.role || "USER",
         department_id: user.department_id || 0,
         position_id: user.position_id || 0,
-        is_active: user.is_active ?? true
+        is_active: user.is_active ?? true,
+        passport_series: user.passport_series || "",
+        passport_number: user.passport_number || "",
+        passport_issued_by: user.passport_issued_by || "",
+        passport_issued_date: user.passport_issued_date ? new Date(user.passport_issued_date).toISOString().split('T')[0] : "",
+        birth_date: user.birth_date ? new Date(user.birth_date).toISOString().split('T')[0] : "",
+        birth_place: user.birth_place || "",
+        inn: user.inn || "",
+        snils: user.snils || "",
+        address: user.address || "",
+        phone: user.phone || ""
       });
     } else {
       setEditingUser(null);
@@ -90,7 +112,17 @@ const UsersPage = () => {
         role: "USER",
         department_id: 0,
         position_id: 0,
-        is_active: true
+        is_active: true,
+        passport_series: "",
+        passport_number: "",
+        passport_issued_by: "",
+        passport_issued_date: "",
+        birth_date: "",
+        birth_place: "",
+        inn: "",
+        snils: "",
+        address: "",
+        phone: ""
       });
     }
     setIsModalOpen(true);
@@ -106,7 +138,7 @@ const UsersPage = () => {
       }
       setIsModalOpen(false);
       fetchUsers();
-    } catch (error) {
+    } catch {
       alert("Failed to save employee data");
     }
   };
@@ -116,7 +148,7 @@ const UsersPage = () => {
       try {
         await AdminService.deleteUser(id);
         fetchUsers();
-      } catch (error) {
+      } catch {
         alert("Failed to delete user");
       }
     }
@@ -127,15 +159,17 @@ const UsersPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-1 text-white">Employee Management</h1>
-          <p className="text-slate-400">View and manage your organization's workforce.</p>
+          <p className="text-slate-400">View and manage your organization&apos;s workforce.</p>
         </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/20 font-medium"
-        >
-          <UserPlus size={18} />
-          Add Employee
-        </button>
+        <PermissionGate permission="manage_users">
+          <button 
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/20 font-medium"
+          >
+            <UserPlus size={18} />
+            Add Employee
+          </button>
+        </PermissionGate>
       </div>
 
       <div className="bg-[#1e293b]/50 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden shadow-xl">
@@ -179,7 +213,8 @@ const UsersPage = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.05 }}
-                    className="hover:bg-white/5 transition-colors group"
+                    onClick={() => router.push(`/dashboard/users/${u.id}`)}
+                    className="hover:bg-white/5 transition-colors group cursor-pointer"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -213,20 +248,28 @@ const UsersPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => handleOpenModal(u)}
-                          className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(u.id)}
-                          className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      <PermissionGate permission="manage_users">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenModal(u);
+                            }}
+                            className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-(--surface-hover) rounded-lg transition-all"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(u.id);
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </PermissionGate>
                     </td>
                   </motion.tr>
                 ))
@@ -251,7 +294,7 @@ const UsersPage = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg bg-[#1e293b] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+              className="relative w-full max-w-2xl bg-[#1e293b] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
             >
               <div className="p-6 border-b border-white/5 flex items-center justify-between">
                 <h3 className="text-xl font-bold text-white">
@@ -262,126 +305,247 @@ const UsersPage = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Full Name</label>
-                    <input 
-                      required
-                      type="text" 
-                      value={formData.full_name}
-                      onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
-                    <input 
-                      required
-                      type="email" 
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
-                      placeholder="john@company.com"
-                    />
-                  </div>
-                </div>
+              <div className="max-h-[70vh] overflow-y-auto custom-scrollbar">
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                  {/* Basic Info */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Account Information</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Full Name</label>
+                        <input 
+                          required
+                          type="text" 
+                          value={formData.full_name}
+                          onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                          placeholder="John Doe"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
+                        <input 
+                          required
+                          type="email" 
+                          value={formData.email}
+                          onChange={(e) => setFormData({...formData, email: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                          placeholder="john@company.com"
+                        />
+                      </div>
+                    </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    {editingUser ? "New Password (Optional)" : "Password"}
-                  </label>
-                  <input 
-                    required={!editingUser}
-                    type="password" 
-                    value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
-                    placeholder="••••••••"
-                  />
-                </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        {editingUser ? "New Password (Optional)" : "Password"}
+                      </label>
+                      <input 
+                        required={!editingUser}
+                        type="password" 
+                        value={formData.password}
+                        onChange={(e) => setFormData({...formData, password: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        placeholder="••••••••"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Department</label>
-                    <select 
-                      value={formData.department_id}
-                      onChange={async (e) => {
-                        const deptId = Number(e.target.value);
-                        setFormData({...formData, department_id: deptId, position_id: 0});
-                        const allPos = await AdminService.getPositions();
-                        if (deptId > 0) {
-                          setPositions(allPos.filter((p: Position) => p.department_id === deptId));
-                        } else {
-                          setPositions(allPos);
-                        }
-                      }}
-                      className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Department</label>
+                        <select 
+                          value={formData.department_id}
+                          onChange={async (e) => {
+                            const deptId = Number(e.target.value);
+                            setFormData({...formData, department_id: deptId, position_id: 0});
+                            const allPos = await AdminService.getPositions();
+                            if (deptId > 0) {
+                              setPositions(allPos.filter((p: Position) => p.department_id === deptId));
+                            } else {
+                              setPositions(allPos);
+                            }
+                          }}
+                          className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        >
+                          <option value={0} className="bg-[#1e293b]">Select Department</option>
+                          {departments.map(d => (
+                            <option key={d.id} value={d.id} className="bg-[#1e293b]">{d.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Position</label>
+                        <select 
+                          value={formData.position_id}
+                          onChange={(e) => setFormData({...formData, position_id: Number(e.target.value)})}
+                          className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        >
+                          <option value={0} className="bg-[#1e293b]">Select Position</option>
+                          {positions.map(p => (
+                            <option key={p.id} value={p.id} className="bg-[#1e293b]">{p.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Extended Identity Fields */}
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+                    <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest px-1">Identity & Personal Data</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase">Passport Series</label>
+                        <input 
+                          type="text" 
+                          value={formData.passport_series}
+                          onChange={(e) => setFormData({...formData, passport_series: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                          placeholder="IV-IK"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase">Passport Number</label>
+                        <input 
+                          type="text" 
+                          value={formData.passport_number}
+                          onChange={(e) => setFormData({...formData, passport_number: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                          placeholder="123456"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400 uppercase">Issued By</label>
+                      <input 
+                        type="text" 
+                        value={formData.passport_issued_by}
+                        onChange={(e) => setFormData({...formData, passport_issued_by: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        placeholder="MVD Center"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase">Issued Date</label>
+                        <input 
+                          type="date" 
+                          value={formData.passport_issued_date || ""}
+                          onChange={(e) => setFormData({...formData, passport_issued_date: e.target.value})}
+                          className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase">Birth Date</label>
+                        <input 
+                          type="date" 
+                          value={formData.birth_date || ""}
+                          onChange={(e) => setFormData({...formData, birth_date: e.target.value})}
+                          className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400 uppercase">Birth Place</label>
+                      <input 
+                        type="text" 
+                        value={formData.birth_place}
+                        onChange={(e) => setFormData({...formData, birth_place: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase">INN (Tax ID)</label>
+                        <input 
+                          type="text" 
+                          value={formData.inn}
+                          onChange={(e) => setFormData({...formData, inn: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase">SNILS</label>
+                        <input 
+                          type="text" 
+                          value={formData.snils}
+                          onChange={(e) => setFormData({...formData, snils: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase">Phone</label>
+                        <input 
+                          type="text" 
+                          value={formData.phone}
+                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-400 uppercase">Address</label>
+                        <input 
+                          type="text" 
+                          value={formData.address}
+                          onChange={(e) => setFormData({...formData, address: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Access & Status</h4>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Access Role</label>
+                      <select 
+                        value={formData.role}
+                        onChange={(e) => setFormData({...formData, role: e.target.value})}
+                        className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                      >
+                        <option value="USER" className="bg-[#1e293b]">Standard User</option>
+                        <option value="HR" className="bg-[#1e293b]">HR Manager</option>
+                        <option value="DEPARTMENT_HEAD" className="bg-[#1e293b]">Department Head</option>
+                        <option value="ADMIN" className="bg-[#1e293b]">Administrator</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <input 
+                        type="checkbox" 
+                        id="is_active"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                        className="w-4 h-4 rounded-sm border-white/10 bg-white/5 text-indigo-600 focus:ring-0"
+                      />
+                      <label htmlFor="is_active" className="text-sm text-slate-300">Employee is currently active</label>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsModalOpen(false)}
+                      className="flex-1 bg-white/5 hover:bg-white/10 text-white font-semibold py-2.5 rounded-xl transition-all"
                     >
-                      <option value={0} className="bg-[#1e293b]">Select Department</option>
-                      {departments.map(d => (
-                        <option key={d.id} value={d.id} className="bg-[#1e293b]">{d.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Position</label>
-                    <select 
-                      value={formData.position_id}
-                      onChange={(e) => setFormData({...formData, position_id: Number(e.target.value)})}
-                      className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
                     >
-                      <option value={0} className="bg-[#1e293b]">Select Position</option>
-                      {positions.map(p => (
-                        <option key={p.id} value={p.id} className="bg-[#1e293b]">{p.title}</option>
-                      ))}
-                    </select>
+                      <Check size={18} />
+                      {editingUser ? "Save Changes" : "Create Account"}
+                    </button>
                   </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Access Role</label>
-                  <select 
-                    value={formData.role}
-                    onChange={(e) => setFormData({...formData, role: e.target.value})}
-                    className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-hidden focus:border-indigo-500/50"
-                  >
-                    <option value="USER" className="bg-[#1e293b]">Standard User</option>
-                    <option value="HR" className="bg-[#1e293b]">HR Manager</option>
-                    <option value="DEPARTMENT_HEAD" className="bg-[#1e293b]">Department Head</option>
-                    <option value="ADMIN" className="bg-[#1e293b]">Administrator</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <input 
-                    type="checkbox" 
-                    id="is_active"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                    className="w-4 h-4 rounded-sm border-white/10 bg-white/5 text-indigo-600 focus:ring-0"
-                  />
-                  <label htmlFor="is_active" className="text-sm text-slate-300">Employee is currently active</label>
-                </div>
-
-                <div className="pt-4 flex gap-3">
-                  <button 
-                    type="button" 
-                    onClick={() => setIsModalOpen(false)}
-                    className="flex-1 bg-white/5 hover:bg-white/10 text-white font-semibold py-2.5 rounded-xl transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
-                  >
-                    <Check size={18} />
-                    {editingUser ? "Save Changes" : "Create Account"}
-                  </button>
-                </div>
-              </form>
+                </form>
+              </div>
             </motion.div>
           </div>
         )}

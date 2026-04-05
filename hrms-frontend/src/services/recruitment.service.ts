@@ -3,14 +3,15 @@ import {
   CandidateStatus,
   CreateRecruitmentJobPayload,
   DepartmentSummary,
+  InterviewNote,
   RecruitmentCandidate,
   RecruitmentJob,
   RecruitmentJobDetailsResponse,
 } from "@/types/hr";
 
 export const RecruitmentService = {
-  getJobs: async () => {
-    const response = await axiosInstance.get<RecruitmentJob[]>("/api/v1/recruitment/jobs");
+  getJobs: async (params?: { search?: string }) => {
+    const response = await axiosInstance.get<RecruitmentJob[]>("/api/v1/recruitment/jobs", { params });
     return response.data;
   },
   getDepartments: async () => {
@@ -39,6 +40,17 @@ export const RecruitmentService = {
   },
   updateCandidateStatus: async (candidateId: number, status: CandidateStatus) => {
     const response = await axiosInstance.patch<{ message: string }>(`/admin/v1/recruitment/candidates/${candidateId}/status`, { status });
+    return response.data;
+  },
+  getInterviewNotes: async (candidateId: number) => {
+    const response = await axiosInstance.get<InterviewNote[]>(`/admin/v1/recruitment/candidates/${candidateId}/notes`);
+    return response.data;
+  },
+  addInterviewNote: async (candidateId: number, payload: { score: number; comments: string }) => {
+    const response = await axiosInstance.post<{ message: string; note: InterviewNote }>(
+      `/admin/v1/recruitment/candidates/${candidateId}/notes`,
+      payload
+    );
     return response.data;
   },
   hireCandidate: async (candidateId: number) => {

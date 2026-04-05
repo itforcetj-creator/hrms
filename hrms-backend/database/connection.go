@@ -45,6 +45,7 @@ func Connect() {
 	database.AutoMigrate(&models.Notification{})
 	database.AutoMigrate(&models.Asset{})      // Asset Management
 	database.AutoMigrate(&models.ExitRecord{}) // Offboarding
+	database.AutoMigrate(&models.BonusPenalty{})
 
 	DB = database
 	utils.Logger.Info("Database connection established and full migration completed successfully")

@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"hrms-backend/database"
 	"hrms-backend/internal/models"
+	"hrms-backend/internal/service"
 	internalUtils "hrms-backend/internal/utils"
 	"hrms-backend/utils"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -204,4 +207,30 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+}
+
+func GenerateContract(c *gin.Context) {
+	id := c.Param("id")
+	var user models.User
+
+	// Preload related data for contract
+	if err := database.DB.Preload("Department").Preload("Position").First(&user, id).Error; err != nil {
+		internalUtils.Logger.Error("User not found for contract", zap.String("id", id), zap.Error(err))
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	pdfBytes, err := service.GenerateEmploymentContract(user)
+	if err != nil {
+		internalUtils.Logger.Error("Failed to generate contract", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate contract PDF"})
+		return
+	}
+
+	fileName := fmt.Sprintf("Contract_%s_%s.pdf", user.FullName, time.Now().Format("2006-01-02"))
+	
+	c.Header("Content-Disposition", "attachment; filename="+fileName)
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Length", strconv.Itoa(len(pdfBytes)))
+	c.Writer.Write(pdfBytes)
 }
