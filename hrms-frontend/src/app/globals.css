@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3f6fb;
+  --foreground: #0f172a;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-strong: #ffffff;
+  --surface-hover: rgba(15, 23, 42, 0.06);
+  --border: rgba(15, 23, 42, 0.14);
+  --muted: #475569;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --input-bg: rgba(255, 255, 255, 0.92);
+  --input-border: rgba(148, 163, 184, 0.42);
+  --canvas-gradient:
+    radial-gradient(40rem 40rem at 0% -10%, rgba(79, 70, 229, 0.13), transparent 60%),
+    radial-gradient(40rem 40rem at 100% -20%, rgba(14, 165, 233, 0.12), transparent 60%),
+    linear-gradient(180deg, #f8fbff 0%, #f3f6fb 50%, #eef2f7 100%);
+
+  /* Keep common Tailwind slate tokens aligned with theme for existing utilities. */
+  --color-slate-400: #475569;
+  --color-slate-500: #334155;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html[data-theme="dark"] {
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --surface: rgba(30, 41, 59, 0.55);
+  --surface-strong: #1e293b;
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.1);
+  --muted: #94a3b8;
+  --accent: #4f46e5;
+  --accent-hover: #6366f1;
+  --input-bg: rgba(15, 23, 42, 0.5);
+  --input-border: rgba(100, 116, 139, 0.55);
+  --canvas-gradient:
+    radial-gradient(35rem 35rem at 0% -10%, rgba(99, 102, 241, 0.2), transparent 60%),
+    radial-gradient(35rem 35rem at 100% -20%, rgba(56, 189, 248, 0.18), transparent 60%),
+    linear-gradient(180deg, #0f172a 0%, #0f172a 55%, #111827 100%);
+
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+}
+
+/* Legacy utility compatibility: remap dark-first classes in light mode. */
+html[data-theme="light"] .bg-\[\#0f172a\] {
+  background-color: #f3f6fb !important;
+}
+
+html[data-theme="light"] .bg-\[\#0f172a\]\/50 {
+  background-color: color-mix(in oklab, var(--surface) 92%, transparent) !important;
+}
+
+html[data-theme="light"] .bg-\[\#1e293b\],
+html[data-theme="light"] .bg-\[\#1e293b\]\/30,
+html[data-theme="light"] .bg-\[\#1e293b\]\/40,
+html[data-theme="light"] .bg-\[\#1e293b\]\/50 {
+  background-color: var(--surface) !important;
+}
+
+html[data-theme="light"] .bg-white\/5 {
+  background-color: var(--surface-hover) !important;
+}
+
+html[data-theme="light"] .bg-white\/10 {
+  background-color: color-mix(in oklab, var(--surface-hover) 70%, transparent) !important;
+}
+
+html[data-theme="light"] .border-white\/5,
+html[data-theme="light"] .border-white\/10 {
+  border-color: var(--border) !important;
+}
+
+html[data-theme="light"] .hover\:bg-white\/5:hover {
+  background-color: color-mix(in oklab, var(--surface-hover) 90%, transparent) !important;
+}
+
+html[data-theme="light"] .hover\:bg-white\/10:hover {
+  background-color: color-mix(in oklab, var(--surface-hover) 75%, transparent) !important;
+}
+
+html[data-theme="light"] .text-white,
+html[data-theme="light"] .text-white\/90 {
+  color: var(--foreground) !important;
+}
+
+html[data-theme="light"] .hover\:text-white:hover {
+  color: var(--foreground) !important;
+}
+
+/* Preserve white text on accent/brand backgrounds. */
+html[data-theme="light"] .bg-indigo-500.text-white,
+html[data-theme="light"] .bg-indigo-600.text-white,
+html[data-theme="light"] .bg-purple-500.text-white,
+html[data-theme="light"] .bg-purple-600.text-white,
+html[data-theme="light"] .bg-red-500.text-white,
+html[data-theme="light"] .bg-emerald-500.text-white,
+html[data-theme="light"] .bg-blue-500.text-white,
+html[data-theme="light"] .bg-linear-to-r.text-white,
+html[data-theme="light"] .bg-linear-to-tr.text-white,
+html[data-theme="light"] .bg-linear-to-br.text-white {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .placeholder\:text-slate-500::placeholder,
+html[data-theme="light"] .placeholder\:text-slate-600::placeholder {
+  color: color-mix(in oklab, var(--muted) 70%, transparent) !important;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  background-image: var(--canvas-gradient);
+  background-attachment: fixed;
+  font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease;
+}
+
+.app-theme-transition {
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.app-shell {
+  color: var(--foreground);
+}
+
+.app-surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.app-surface-strong {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+}
+
+.app-muted {
+  color: var(--muted);
+}
+
+.app-input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--foreground);
+}
+
+.app-input::placeholder {
+  color: color-mix(in oklab, var(--muted) 75%, transparent);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--muted) 45%, transparent);
+  border-radius: 999px;
+}
+
+@keyframes blob {
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -45px) scale(1.08);
+  }
+  66% {
+    transform: translate(-24px, 20px) scale(0.96);
+  }
+}
+
+.animate-blob {
+  animation: blob 8s ease-in-out infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
