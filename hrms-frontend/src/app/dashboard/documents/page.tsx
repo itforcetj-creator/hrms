@@ -104,7 +104,7 @@ const DocumentsPage = () => {
 
     setUploading(true);
     try {
-      const result = await DocumentService.upload(selectedFile, documentType);
+      const result = await DocumentService.uploadFile(selectedFile, documentType);
       if (canViewAll) {
         await loadDocuments();
       } else if (result?.document) {

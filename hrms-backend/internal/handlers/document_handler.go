@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"hrms-backend/database"
+	"hrms-backend/internal/config"
 	"hrms-backend/internal/models"
 	"hrms-backend/internal/storage"
 	"hrms-backend/internal/utils"
+	internalUtils "hrms-backend/internal/utils"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +19,13 @@ import (
 )
 
 var FileStorage storage.FileStorage = storage.NewLocalStorage("uploads")
+
+func getMaxUploadSize() int64 {
+	if config.AppConfig == nil {
+		config.Load()
+	}
+	return int64(config.AppConfig.MaxUploadSizeMB) * 1024 * 1024 // MB to bytes
+}
 
 func UploadDocument(c *gin.Context) {
 	currentUserID := c.GetUint("user_id")
@@ -53,6 +63,17 @@ func UploadDocument(c *gin.Context) {
 	fileHeader, err := c.FormFile("document")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
+		return
+	}
+
+	// Check file size limit
+	maxSize := getMaxUploadSize()
+	if fileHeader.Size > maxSize {
+		maxSizeMB := float64(maxSize) / (1024 * 1024)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("File size exceeds maximum allowed size (%.1f MB). Uploaded: %.1f MB",
+				maxSizeMB, float64(fileHeader.Size)/(1024*1024)),
+		})
 		return
 	}
 
@@ -109,24 +130,30 @@ func GetDocumentsByUsers(c *gin.Context) {
 		return
 	}
 
-	var documents []models.Document
-	query := database.DB.Model(&models.Document{}).
-		Preload("User").
-		Order("documents.created_at DESC")
-
+	// Pagination
+	var total int64
+	baseQuery := database.DB.Model(&models.Document{})
 	if userID := strings.TrimSpace(c.Query("user_id")); userID != "" {
-		query = query.Where("documents.user_id = ?", userID)
+		baseQuery = baseQuery.Where("documents.user_id = ?", userID)
 	}
-
 	if search := strings.TrimSpace(c.Query("search")); search != "" {
 		like := "%" + strings.ToLower(search) + "%"
-		query = query.
+		baseQuery = baseQuery.
 			Joins("LEFT JOIN users ON users.id = documents.user_id").
 			Where(
 				"LOWER(documents.file_name) LIKE ? OR LOWER(documents.file_type) LIKE ? OR LOWER(users.full_name) LIKE ? OR LOWER(users.email) LIKE ?",
 				like, like, like, like,
 			)
 	}
+	baseQuery.Count(&total)
+
+	var documents []models.Document
+	query := baseQuery.Preload("User").Order("documents.created_at DESC")
+	paginationParams := internalUtils.PaginationParams{
+		Page:     internalUtils.ParseIntOrDefault(c.Query("page"), 1),
+		PageSize: internalUtils.ParseIntOrDefault(c.Query("page_size"), 20),
+	}
+	query = internalUtils.ApplyPagination(paginationParams, query)
 
 	if err := query.Find(&documents).Error; err != nil {
 		utils.Logger.Error("Failed to fetch all documents", zap.Error(err))
@@ -134,7 +161,12 @@ func GetDocumentsByUsers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, documents)
+	c.JSON(http.StatusOK, internalUtils.PaginatedResponse{
+		Data:     documents,
+		Total:    total,
+		Page:     paginationParams.Page,
+		PageSize: paginationParams.PageSize,
+	})
 }
 
 func DownloadDocument(c *gin.Context) {
@@ -216,9 +248,15 @@ func resolveDocumentPath(storedPath string) string {
 		}
 	}
 
+	uploadsDir := filepath.Clean("uploads")
 	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
+		cleanCandidate := filepath.Clean(candidate)
+		// Security check: ensure the resolved path is within the uploads directory
+		if !strings.HasPrefix(cleanCandidate, uploadsDir) && !strings.HasPrefix(cleanCandidate, filepath.Join(".", uploadsDir)) {
+			continue
+		}
+		if _, err := os.Stat(cleanCandidate); err == nil {
+			return cleanCandidate
 		}
 	}
 	return cleanStored

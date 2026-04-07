@@ -80,6 +80,7 @@ const PayrollPage = () => {
         usersCount={users.length}
         onExportAnalytics={exportAnalyticsCsv}
         onExportHistory={exportHistoryCsv}
+        onExportExcel={exportHistoryExcel}
         onExportPdf={exportPayslipsPdf}
         onGenerate={handleGenerate}
         onOpenSettings={openSettingsModal}

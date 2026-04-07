@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 
@@ -17,19 +18,22 @@ type Config struct {
 	DBName     string
 	DBSSLMode  string
 
-	JWTSecret         string
+	JWTSecret          string
 	JWTExpirationHours int
 
 	MaxUploadSizeMB int
 
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUser     string
-	SMTPPassword string
+	SMTPHost      string
+	SMTPPort      int
+	SMTPUser      string
+	SMTPPassword  string
 	SMTPFromEmail string
-	SMTPUseTLS   bool
+	SMTPUseTLS    bool
 
-	RateLimitRequests    int
+	TelegramBotToken string
+	TelegramChatID   string
+
+	RateLimitRequests      int
 	RateLimitWindowSeconds int
 }
 
@@ -49,7 +53,7 @@ func Load() *Config {
 		DBName:     getEnv("DB_NAME", "hrms"),
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 
-		JWTSecret:          getEnv("JWT_SECRET", "change-this-in-production-to-a-secure-secret"),
+		JWTSecret:          getEnv("JWT_SECRET", ""),
 		JWTExpirationHours: getEnvInt("JWT_EXPIRATION_HOURS", 24),
 
 		MaxUploadSizeMB: getEnvInt("MAX_UPLOAD_SIZE_MB", 10),
@@ -61,8 +65,15 @@ func Load() *Config {
 		SMTPFromEmail: getEnv("SMTP_FROM_EMAIL", ""),
 		SMTPUseTLS:    getEnvBool("SMTP_USE_TLS", true),
 
-		RateLimitRequests:    getEnvInt("RATE_LIMIT_REQUESTS", 100),
+		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramChatID:   getEnv("TELEGRAM_CHAT_ID", ""),
+
+		RateLimitRequests:      getEnvInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitWindowSeconds: getEnvInt("RATE_LIMIT_WINDOW_SECONDS", 60),
+	}
+
+	if cfg.JWTSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
 	}
 
 	AppConfig = cfg

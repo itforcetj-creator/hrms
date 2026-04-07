@@ -7,11 +7,22 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"log"
+	"os"
 )
 
-// In production, this key should come from an Environment Variable.
-// AES key must be 32 bytes for AES-256.
-var masterKey = []byte("a-very-secure-32-byte-long-key!!") // Placeholder
+var masterKey []byte
+
+func init() {
+	key := os.Getenv("ENCRYPTION_KEY")
+	if key == "" {
+		log.Fatal("ENCRYPTION_KEY environment variable is required (must be exactly 32 bytes)")
+	}
+	if len(key) != 32 {
+		log.Fatalf("ENCRYPTION_KEY must be exactly 32 bytes, got %d bytes", len(key))
+	}
+	masterKey = []byte(key)
+}
 
 // Encrypt string to base64 encrypted string using AES-GCM.
 func Encrypt(plaintext string) (string, error) {

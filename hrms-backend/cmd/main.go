@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hrms-backend/database"
 	_ "hrms-backend/docs"
+	"hrms-backend/internal/api/middleware"
 	"hrms-backend/internal/api/routes"
 	"hrms-backend/internal/config"
 	"hrms-backend/internal/utils"
@@ -46,15 +47,21 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"}, // React Vite
+		AllowOrigins:     []string{"http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-CSRF-Token"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 4. Setup Modular Routes
+	// Rate Limiting
+	r.Use(middleware.RateLimitMiddleware())
+
+	// CSRF Protection
+	r.Use(middleware.CSRFMiddleware())
+
+	// 5. Setup Modular Routes
 	routes.SetupRoutes(r)
 
 	// 5. Swagger Documentation Endpoint

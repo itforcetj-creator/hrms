@@ -12,6 +12,7 @@ interface PayrollHeaderProps {
   usersCount: number;
   onExportAnalytics: () => void;
   onExportHistory: () => void;
+  onExportExcel: () => void;
   onExportPdf: () => void;
   onGenerate: () => void;
   onOpenSettings: () => void;
@@ -53,6 +54,13 @@ export const PayrollHeader: React.FC<PayrollHeaderProps> = ({
       >
         <Download size={16} />
         {t("payroll.exportHistory")}
+      </button>
+      <button
+        onClick={onExportExcel}
+        className="flex items-center gap-2 px-4 py-2.5 border border-(--border) hover:bg-(--surface-hover) rounded-xl font-semibold text-sm transition-all text-emerald-500"
+      >
+        <FileText size={16} />
+        Excel
       </button>
       <button
         onClick={onExportPdf}

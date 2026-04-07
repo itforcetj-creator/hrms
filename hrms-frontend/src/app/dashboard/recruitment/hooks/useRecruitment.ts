@@ -128,23 +128,33 @@ export const useRecruitment = () => {
     setShowCreateModal(true);
   }, [resetCreateForm]);
 
+  /**
+   * Handles the creation of a new recruitment job opening.
+   * Includes client-side validation for title length and department selection.
+   */
   const handleCreateJob = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setCreateError("");
 
       const title = createForm.title.trim();
-      if (!title) {
-        setCreateError("Job title is required.");
+      // Enhanced validation: ensure job details are meaningful
+      if (title.length < 5) {
+        setCreateError("Job title must be at least 5 characters long.");
         return;
       }
       if (!createForm.department_id) {
         setCreateError("Please select a department.");
         return;
       }
+      if (createForm.description.trim().length < 20) {
+        setCreateError("Please provide a more detailed job description (min 20 characters).");
+        return;
+      }
 
       setIsSubmitting(true);
       try {
+        // API call to the RecruitmentService
         const created = await RecruitmentService.createJob({
           title,
           description: createForm.description.trim(),
@@ -155,7 +165,7 @@ export const useRecruitment = () => {
         setShowCreateModal(false);
         resetCreateForm();
       } catch (error: unknown) {
-        setCreateError(extractApiError(error, "Could not create job opening."));
+        setCreateError(extractApiError(error, "Could not create job opening. Check connection."));
       } finally {
         setIsSubmitting(false);
       }

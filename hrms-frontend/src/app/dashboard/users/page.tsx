@@ -128,8 +128,43 @@ const UsersPage = () => {
     setIsModalOpen(true);
   };
 
+  /**
+   * Validates the form data before submission.
+   * Checks for valid email format, positive IDs for departments/positions,
+   * and ensures required identity fields are filled.
+   */
+  const validateForm = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert("Please enter a valid email address.");
+      return false;
+    }
+    if (formData.full_name.trim().length < 3) {
+      alert("Full name must be at least 3 characters long.");
+      return false;
+    }
+    if (!editingUser && formData.password.length < 6) {
+      alert("Password must be at least 6 characters long.");
+      return false;
+    }
+    if (formData.department_id === 0 || formData.position_id === 0) {
+      alert("Please select both a department and a position.");
+      return false;
+    }
+    // Basic phone validation (digits and optional plus)
+    if (formData.phone && !/^\+?[0-9\s-]{7,15}$/.test(formData.phone)) {
+      alert("Please enter a valid phone number.");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Perform client-side validation before hitting the API
+    if (!validateForm()) return;
+
     try {
       if (editingUser) {
         await AdminService.updateUser(editingUser.id, formData);
@@ -139,7 +174,7 @@ const UsersPage = () => {
       setIsModalOpen(false);
       fetchUsers();
     } catch {
-      alert("Failed to save employee data");
+      alert("Failed to save employee data. Please verify the input or check your network.");
     }
   };
 

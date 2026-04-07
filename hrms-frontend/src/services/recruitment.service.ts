@@ -4,6 +4,7 @@ import {
   CreateRecruitmentJobPayload,
   DepartmentSummary,
   InterviewNote,
+  PaginatedResponse,
   RecruitmentCandidate,
   RecruitmentJob,
   RecruitmentJobDetailsResponse,
@@ -11,8 +12,8 @@ import {
 
 export const RecruitmentService = {
   getJobs: async (params?: { search?: string }) => {
-    const response = await axiosInstance.get<RecruitmentJob[]>("/api/v1/recruitment/jobs", { params });
-    return response.data;
+    const response = await axiosInstance.get<PaginatedResponse<RecruitmentJob>>("/api/v1/recruitment/jobs", { params });
+    return response.data.data;
   },
   getDepartments: async () => {
     const response = await axiosInstance.get<DepartmentSummary[]>("/api/v1/departments");
@@ -35,8 +36,8 @@ export const RecruitmentService = {
     return response.data;
   },
   getCandidatesByJob: async (jobId: number) => {
-    const response = await axiosInstance.get<RecruitmentCandidate[]>(`/admin/v1/recruitment/jobs/${jobId}/candidates`);
-    return response.data;
+    const response = await axiosInstance.get<PaginatedResponse<RecruitmentCandidate>>(`/admin/v1/recruitment/jobs/${jobId}/candidates`);
+    return response.data.data;
   },
   updateCandidateStatus: async (candidateId: number, status: CandidateStatus) => {
     const response = await axiosInstance.patch<{ message: string }>(`/admin/v1/recruitment/candidates/${candidateId}/status`, { status });

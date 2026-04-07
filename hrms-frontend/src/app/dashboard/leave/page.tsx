@@ -554,27 +554,55 @@ const LeavePage = () => {
     });
   };
 
+  /**
+   * Validates the leave request form data before submission.
+   * Ensures dates are logical and balance is checked mentally or by API response.
+   */
+  const validateLeaveForm = () => {
+    if (!formData.start_date || !formData.end_date) {
+      setError(t("leave.errors.requiredDates") || "Please select both start and end dates.");
+      return false;
+    }
+    
+    if (new Date(formData.end_date) < new Date(formData.start_date)) {
+      setError(t("leave.errors.endDate") || "End date cannot be before start date.");
+      return false;
+    }
+
+    if (formData.reason.trim().length < 5) {
+      setError(t("leave.errors.reasonLength") || "Please provide a reason (min 5 characters).");
+      return false;
+    }
+
+    return true;
+  };
+
   const handleCreateRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitLoading(true);
     setError("");
 
-    if (new Date(formData.end_date) < new Date(formData.start_date)) {
-      setError(t("leave.errors.endDate"));
+    // 1. Client-side validation
+    if (!validateLeaveForm()) {
       setSubmitLoading(false);
       return;
     }
 
     try {
+      // 2. Submission to the backend Service
       await LeaveService.request({
         ...formData,
+        // Normalize to ISO string for backend date parsing
         start_date: new Date(formData.start_date).toISOString(),
         end_date: new Date(formData.end_date).toISOString(),
       });
+
+      // 3. Success Workflow
       setIsModalOpen(false);
       resetForm();
       await fetchRequests();
     } catch (err: unknown) {
+      // 4. Error handling with localized messages
       setError(getApiErrorMessage(err, t("leave.errors.submit")));
     } finally {
       setSubmitLoading(false);
@@ -582,8 +610,19 @@ const LeavePage = () => {
   };
 
   const handleApprove = async (id: number, status: "APPROVED" | "REJECTED") => {
+    // 1. Prompt for comments (useful for audit and multi-step clarity)
+    const promptTitle = status === "APPROVED" ? t("leave.approvePrompt") || "Enter approval comments (optional):" : t("leave.rejectPrompt") || "Enter rejection reason:";
+    const comments = window.prompt(promptTitle) || "";
+    
+    // 2. Mandatory reason for rejection
+    if (status === "REJECTED" && !comments.trim()) {
+      setError("Please provide a reason for rejection.");
+      return;
+    }
+
     try {
-      await LeaveService.approve(id, status);
+      // 3. Process via Workflow Service on the backend
+      await LeaveService.approve(id, status, comments);
       await fetchRequests();
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, t("leave.errors.action")));

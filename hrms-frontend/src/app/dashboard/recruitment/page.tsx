@@ -85,21 +85,18 @@ const RecruitmentPage = () => {
       {/* ... (existing job cards and modals) */}
 
       {/* Job Details Modal */}
-      <JobDetailsModal
-        isOpen={showDetailsModal}
-        onClose={() => setShowDetailsModal(false)}
-        isLoading={detailsLoading}
-        error={detailsError}
-        jobDetails={jobDetails}
-        canManage={canManage}
-        candidateActionId={candidateActionId}
-        onCandidateStatusChange={handleCandidateStatusChange}
-        onHireCandidate={handleHireCandidate}
-        interviewNotes={interviewNotes}
-        notesLoading={notesLoading}
-        onFetchNotes={fetchInterviewNotes}
-        onAddNote={handleAddInterviewNote}
-      />
+      {showDetailsModal && jobDetails && (
+        <JobDetailsModal
+          job={jobDetails.job}
+          onClose={() => setShowDetailsModal(false)}
+          canManage={canManage}
+          candidateActionId={candidateActionId}
+          onHireCandidate={handleHireCandidate}
+          interviewNotes={interviewNotes}
+          notesLoading={notesLoading}
+          onAddNote={handleAddInterviewNote}
+        />
+      )}
     </div>
   );
 };

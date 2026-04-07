@@ -23,8 +23,8 @@ export interface UserProfile {
 
 export interface AuthResponse {
   token: string;
-  user: UserProfile;
-  message?: string;
+  csrf_token?: string;
+  // Full user profile should be fetched via GET /me after login
 }
 
 export interface LoginCredentials {

@@ -1,15 +1,24 @@
 package database
 
 import (
+	"crypto/rand"
 	"fmt"
 	"hrms-backend/internal/models"
 	"hrms-backend/utils"
+	"math/big"
+	"os"
 	"time"
 )
 
 // Seed populates the database with initial mock data for testing purposes.
 // It uses FirstOrCreate to prevent duplicate entries on subsequent runs.
 func Seed() {
+	// Skip seeding in production
+	if os.Getenv("ALLOW_SEEDING") != "true" {
+		fmt.Println("Seeding disabled. Set ALLOW_SEEDING=true to enable.")
+		return
+	}
+
 	if DB == nil {
 		fmt.Println("Database connection not initialized. Skipping seed.")
 		return
@@ -50,8 +59,15 @@ func Seed() {
 	}
 
 	// 3. Seed Users
-	hashedPassword, _ := utils.HashPassword("password123")
-	
+	seedPassword := generateSeedPassword()
+	hashedPassword, err := utils.HashPassword(seedPassword)
+	if err != nil {
+		fmt.Printf("Failed to hash seed password: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Seed password for all users: %s\n", seedPassword)
+
 	users := []models.User{
 		{
 			Email:        "admin@hrms.com",
@@ -95,7 +111,7 @@ func Seed() {
 
 	for i := range users {
 		DB.Where(models.User{Email: users[i].Email}).FirstOrCreate(&users[i])
-		
+
 		// 4. Seed Salary Configuration for each user
 		salary := models.SalaryConfiguration{
 			UserID:           users[i].ID,
@@ -135,4 +151,16 @@ func Seed() {
 	DB.Where(models.LeaveRequest{UserID: leave.UserID, Reason: leave.Reason}).FirstOrCreate(&leave)
 
 	fmt.Println("Seeding completed successfully.")
+}
+
+// generateSeedPassword creates a cryptographically random password for seed users.
+func generateSeedPassword() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+	const length = 16
+	password := make([]byte, length)
+	for i := range password {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		password[i] = charset[n.Int64()]
+	}
+	return string(password)
 }

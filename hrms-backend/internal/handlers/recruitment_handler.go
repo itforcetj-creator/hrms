@@ -334,7 +334,18 @@ func DeleteJobOpening(c *gin.Context) {
 // GetJobOpenings retrieves all job openings with department preloading.
 func GetJobOpenings(c *gin.Context) {
 	var jobs []models.JobOpening
-	if err := database.DB.Preload("Department").Order("created_at desc").Find(&jobs).Error; err != nil {
+
+	// Pagination
+	var total int64
+	database.DB.Model(&models.JobOpening{}).Count(&total)
+
+	paginationParams := utils.PaginationParams{
+		Page:     utils.ParseIntOrDefault(c.Query("page"), 1),
+		PageSize: utils.ParseIntOrDefault(c.Query("page_size"), 20),
+	}
+	query := utils.ApplyPagination(paginationParams, database.DB)
+
+	if err := query.Preload("Department").Order("created_at desc").Find(&jobs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job openings"})
 		return
 	}
@@ -342,7 +353,12 @@ func GetJobOpenings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch candidate counts"})
 		return
 	}
-	c.JSON(http.StatusOK, jobs)
+	c.JSON(http.StatusOK, utils.PaginatedResponse{
+		Data:     jobs,
+		Total:    total,
+		Page:     paginationParams.Page,
+		PageSize: paginationParams.PageSize,
+	})
 }
 
 // GetJobOpeningDetails returns a single job with candidate pipeline details.
@@ -370,12 +386,28 @@ func GetJobOpeningDetails(c *gin.Context) {
 // GetCandidatesByJob retrieves all candidates for a specific job.
 func GetCandidatesByJob(c *gin.Context) {
 	jobID := c.Param("id")
+
+	// Pagination
+	var total int64
+	database.DB.Model(&models.Candidate{}).Where("job_opening_id = ?", jobID).Count(&total)
+
+	paginationParams := utils.PaginationParams{
+		Page:     utils.ParseIntOrDefault(c.Query("page"), 1),
+		PageSize: utils.ParseIntOrDefault(c.Query("page_size"), 20),
+	}
+	query := utils.ApplyPagination(paginationParams, database.DB)
+
 	var candidates []models.Candidate
-	if err := database.DB.Where("job_opening_id = ?", jobID).Order("id desc").Find(&candidates).Error; err != nil {
+	if err := query.Where("job_opening_id = ?", jobID).Order("id desc").Find(&candidates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch candidates"})
 		return
 	}
-	c.JSON(http.StatusOK, candidates)
+	c.JSON(http.StatusOK, utils.PaginatedResponse{
+		Data:     candidates,
+		Total:    total,
+		Page:     paginationParams.Page,
+		PageSize: paginationParams.PageSize,
+	})
 }
 
 // ApplyForJob is a public endpoint for candidates to submit resumes.

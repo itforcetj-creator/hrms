@@ -194,15 +194,56 @@ export const usePayroll = () => {
     }
   };
 
+  /**
+   * Validates the salary settings form.
+   * Ensures base salary is a positive number and bank details follow a basic pattern.
+   */
+  const validateSalaryForm = () => {
+    if (salaryForm.user_id === 0) {
+      setMessage({ type: "error", text: t("payroll.errors.selectUser") || "Please select an employee." });
+      return false;
+    }
+    if (salaryForm.base_salary <= 0) {
+      setMessage({ type: "error", text: t("payroll.errors.invalidSalary") || "Salary must be greater than 0." });
+      return false;
+    }
+    // Basic account number validation (8-24 digits)
+    if (salaryForm.account_number && !/^[0-9A-Z]{8,24}$/.test(salaryForm.account_number)) {
+      setMessage({ type: "error", text: t("payroll.errors.invalidAccount") || "Invalid bank account format." });
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * Validates the bonus/penalty form.
+   */
+  const validateBonusForm = () => {
+    if (bonusForm.user_id === 0) {
+      setMessage({ type: "error", text: "Please select an employee." });
+      return false;
+    }
+    if (bonusForm.amount <= 0) {
+      setMessage({ type: "error", text: "Amount must be greater than 0." });
+      return false;
+    }
+    if (bonusForm.reason.trim().length < 3) {
+      setMessage({ type: "error", text: "Please provide a reason." });
+      return false;
+    }
+    return true;
+  };
+
   const handleApplySalary = async (event: React.FormEvent) => {
     event.preventDefault();
     setMessage(null);
-    if (!salaryForm.user_id || salaryForm.base_salary <= 0) {
-      setMessage({ type: "error", text: t("payroll.fillRequired") });
-      return;
-    }
+
+    // 1. Client-side validation
+    if (!validateSalaryForm()) return;
+
     setSalarySubmitting(true);
     try {
+      // 2. Encryption and secure processing happens on the backend
       await PayrollService.updateSalary({
         ...salaryForm,
         currency: (salaryForm.currency || STANDARD_CURRENCY).trim().toUpperCase(),
@@ -219,6 +260,7 @@ export const usePayroll = () => {
         reason: "",
       });
     } catch (error) {
+      // 3. Robust error handling for concurrent updates or auth issues
       setMessage({ type: "error", text: getApiErrorMessage(error, t("payroll.salaryApplyError")) });
     } finally {
       setSalarySubmitting(false);
@@ -227,7 +269,10 @@ export const usePayroll = () => {
 
   const handleBonusSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!bonusForm.user_id || bonusForm.amount <= 0) return;
+    
+    // 1. Validation for amount and employee selection
+    if (!validateBonusForm()) return;
+
     setBonusSubmitting(true);
     try {
       await BonusPenaltyService.create(bonusForm);
@@ -242,6 +287,7 @@ export const usePayroll = () => {
         date: new Date().toISOString().split("T")[0],
       });
     } catch (error) {
+      // 2. Error feedback with specific backend message if available
       setMessage({ type: "error", text: getApiErrorMessage(error, "Failed to add bonus/penalty") });
     } finally {
       setBonusSubmitting(false);
@@ -351,6 +397,24 @@ export const usePayroll = () => {
       ...monthlyTotals.map((row) => [row.monthLabel, row.count, formatCurrency(row.amount, STANDARD_CURRENCY, TJ_EXPORT_LOCALE)]),
     ];
     downloadCsv(`payroll-analytics-tj-${Date.now()}.csv`, rows);
+  };
+
+  const exportHistoryExcel = async () => {
+    setMessage(null);
+    const now = new Date();
+    try {
+      const blob = await PayrollService.exportExcel(now.getMonth() + 1, now.getFullYear());
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `payroll-report-${Date.now()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Excel export failed", error);
+      setMessage({ type: "error", text: "Failed to export Excel report." });
+    }
   };
 
   const exportHistoryCsv = () => {
@@ -540,6 +604,7 @@ export const usePayroll = () => {
     handleGenerate,
     exportAnalyticsCsv,
     exportHistoryCsv,
+    exportHistoryExcel,
     exportPayslipsPdf,
     fetchUsers,
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"hrms-backend/database"
+	"hrms-backend/internal/config"
 	"hrms-backend/internal/models"
 	"io"
 	"net/http"
@@ -43,7 +44,13 @@ func AuditMiddleware() gin.HandlerFunc {
 				authHeader := c.GetHeader("Authorization")
 				if strings.HasPrefix(authHeader, "Bearer ") {
 					tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-					if token, _, err := new(jwt.Parser).ParseUnverified(tokenStr, jwt.MapClaims{}); err == nil {
+					token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+						if config.AppConfig == nil {
+							config.Load()
+						}
+						return []byte(config.AppConfig.JWTSecret), nil
+					})
+					if err == nil && token.Valid {
 						if claims, ok := token.Claims.(jwt.MapClaims); ok {
 							if uid, ok := claims["user_id"].(float64); ok {
 								userID = uint(uid)

@@ -97,16 +97,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await AuthService.login(credentials);
       Cookies.set('token', response.token, { expires: 1, path: '/' }); // 1 day
-      
-      // If the login response has the user, use it. Otherwise, fetch it.
-      if (response.user) {
-        setUser(response.user);
-        saveUserToStorage(response.user);
-      } else {
-        const userData = await AuthService.getCurrentUser();
-        setUser(userData);
-        saveUserToStorage(userData);
+
+      // Save CSRF token from login response for subsequent authenticated requests
+      if (response.csrf_token) {
+        Cookies.set('XSRF-TOKEN', response.csrf_token, { expires: 1, path: '/' });
       }
+
+      // Fetch full user profile via GET /me
+      const userData = await AuthService.getCurrentUser();
+      setUser(userData);
+      saveUserToStorage(userData);
       
       router.push('/dashboard/profile');
     } catch (error: unknown) {

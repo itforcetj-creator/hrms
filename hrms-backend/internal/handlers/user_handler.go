@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-
 func GetEmployeeProfile(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
@@ -43,8 +42,24 @@ func GetEmployeeDirectory(c *gin.Context) {
 		query = query.Where("full_name ILIKE ? OR email ILIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
+	// Pagination
+	var total int64
+	database.DB.Model(&models.User{}).Count(&total)
+
+	paginationParams := internalUtils.PaginationParams{
+		Page:     internalUtils.ParseIntOrDefault(c.Query("page"), 1),
+		PageSize: internalUtils.ParseIntOrDefault(c.Query("page_size"), 20),
+	}
+	query = internalUtils.ApplyPagination(paginationParams, query)
+
 	query.Preload("Department").Preload("Position").Find(&users)
-	c.JSON(http.StatusOK, users)
+
+	c.JSON(http.StatusOK, internalUtils.PaginatedResponse{
+		Data:     users,
+		Total:    total,
+		Page:     paginationParams.Page,
+		PageSize: paginationParams.PageSize,
+	})
 }
 
 // CreateUser handles administrative onboarding of new employees.
@@ -55,7 +70,17 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, _ := utils.HashPassword(user.Password)
+	if user.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password is required"})
+		return
+	}
+
+	hashedPassword, err := utils.HashPassword(user.Password)
+	if err != nil {
+		internalUtils.Logger.Error("Failed to hash password", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
+		return
+	}
 	user.Password = hashedPassword
 
 	// Handle 0 values for dropdowns (not selected)
@@ -92,7 +117,12 @@ func UpdateUser(c *gin.Context) {
 
 	// Hash password if provided
 	if password, ok := updateData["password"].(string); ok && password != "" {
-		hashed, _ := utils.HashPassword(password)
+		hashed, err := utils.HashPassword(password)
+		if err != nil {
+			internalUtils.Logger.Error("Failed to hash password", zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
+			return
+		}
 		updateData["password"] = hashed
 	}
 
@@ -118,7 +148,7 @@ func UpdateUser(c *gin.Context) {
 func OffboardUser(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
-	
+
 	tx := database.DB.Begin()
 	if err := tx.First(&user, id).Error; err != nil {
 		tx.Rollback()
@@ -139,7 +169,7 @@ func OffboardUser(c *gin.Context) {
 	// 1. Calculate Payout (Leave Balance * Daily Rate)
 	var salary models.SalaryConfiguration
 	tx.Where("user_id = ?", user.ID).First(&salary)
-	dailyRate := salary.BaseSalary / 22.0
+	dailyRate := salary.BaseSalary / models.WorkingDaysPerMonth
 	finalPayout := user.LeaveBalance * dailyRate
 
 	// 2. Create Exit Record
@@ -177,16 +207,16 @@ func OffboardUser(c *gin.Context) {
 		Action:    "TERMINATE_USER",
 		Table:     "users",
 		RecordID:  user.ID,
-		NewValues: string(input.ExitType) + " | Settlement: " + string(rune(finalPayout)),
+		NewValues: fmt.Sprintf("%s | Settlement: %.2f", input.ExitType, finalPayout),
 		CreatedAt: time.Now(),
 	})
 
 	tx.Commit()
 	internalUtils.Logger.Info("Employee offboarded successfully", zap.Uint("user_id", user.ID), zap.Float64("payout", finalPayout))
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Employee successfully offboarded",
-		"payout":        finalPayout,
-		"exit_record":  exit,
+		"message":     "Employee successfully offboarded",
+		"payout":      finalPayout,
+		"exit_record": exit,
 	})
 }
 
@@ -228,7 +258,7 @@ func GenerateContract(c *gin.Context) {
 	}
 
 	fileName := fmt.Sprintf("Contract_%s_%s.pdf", user.FullName, time.Now().Format("2006-01-02"))
-	
+
 	c.Header("Content-Disposition", "attachment; filename="+fileName)
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Length", strconv.Itoa(len(pdfBytes)))

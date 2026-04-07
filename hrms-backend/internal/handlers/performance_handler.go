@@ -3,6 +3,7 @@ package handlers
 import (
 	"hrms-backend/database"
 	"hrms-backend/internal/models"
+	"hrms-backend/internal/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,9 +12,9 @@ import (
 // CreateGoal allows an employee or manager to set a new performance goal.
 func CreateGoal(c *gin.Context) {
 	var input struct {
-		Title      string `json:"title" binding:"required"`
+		Title       string `json:"title" binding:"required"`
 		Description string `json:"description"`
-		TargetDate string `json:"target_date"`
+		TargetDate  string `json:"target_date"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -89,9 +90,25 @@ func GetReviewCycles(c *gin.Context) {
 // GetPerformanceReviews retrieves all submitted evaluations (Admin/HR view).
 func GetPerformanceReviews(c *gin.Context) {
 	var reviews []models.PerformanceReview
-	if err := database.DB.Preload("Employee").Preload("Reviewer").Preload("Cycle").Find(&reviews).Error; err != nil {
+
+	// Pagination
+	var total int64
+	database.DB.Model(&models.PerformanceReview{}).Count(&total)
+
+	paginationParams := utils.PaginationParams{
+		Page:     utils.ParseIntOrDefault(c.Query("page"), 1),
+		PageSize: utils.ParseIntOrDefault(c.Query("page_size"), 20),
+	}
+	query := utils.ApplyPagination(paginationParams, database.DB)
+
+	if err := query.Preload("Employee").Preload("Reviewer").Preload("Cycle").Find(&reviews).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reviews"})
 		return
 	}
-	c.JSON(http.StatusOK, reviews)
+	c.JSON(http.StatusOK, utils.PaginatedResponse{
+		Data:     reviews,
+		Total:    total,
+		Page:     paginationParams.Page,
+		PageSize: paginationParams.PageSize,
+	})
 }

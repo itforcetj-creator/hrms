@@ -190,7 +190,7 @@ const AttendancePage = () => {
     setActionLoading(true); setClockMsg(null);
     try {
       const res = await AttendanceService.clockOut();
-      setClockMsg({ type: "success", text: t("attendance.clockOutSuccess", { hours: res.total_hours.toFixed(2) }) });
+      setClockMsg({ type: "success", text: t("attendance.clockOutSuccess", { hours: res.attendance.total_hours.toFixed(2) }) });
       void fetchData();
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;

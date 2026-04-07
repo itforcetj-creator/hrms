@@ -1,29 +1,23 @@
 import axiosInstance from '@/lib/axios';
-import { Attendance, LeaveRequest, Payslip, HRDocument } from '@/types/hr';
+import { Attendance, LeaveRequest, Payslip, HRDocument, PaginatedResponse } from '@/types/hr';
 
 // Profile Service acts as an aggregate for current user's profile operations
 export const ProfileService = {
   getAttendance: async () => {
-    // Current setup doesn't have a specific get-my-attendance endpoint, 
-    // but the backend requires attendance tracking for the profile page.
-    // Assuming backend returns own attendance if non-admin or we filter by user.
-    // For now, let's use the reports endpoint or a dedicated my endpoint if it existed.
-    // NOTE: In the future, a dedicated get-my-attendance API is recommended.
     try {
-      const response = await axiosInstance.get<Attendance[]>('/admin/v1/attendance/reports');
-      return response.data;
+      const response = await axiosInstance.get<PaginatedResponse<Attendance>>('/admin/v1/attendance/reports');
+      return response.data.data;
     } catch {
-      // Fallback for non-admins if above fails
       return [];
     }
   },
   getLeaves: async () => {
-    const response = await axiosInstance.get<LeaveRequest[]>('/api/v1/leave/requests');
-    return response.data;
+    const response = await axiosInstance.get<PaginatedResponse<LeaveRequest>>('/api/v1/leave/requests');
+    return response.data.data;
   },
   getPayslips: async () => {
-    const response = await axiosInstance.get<Payslip[]>('/api/v1/payroll/payslips');
-    return response.data;
+    const response = await axiosInstance.get<PaginatedResponse<Payslip>>('/api/v1/payroll/payslips');
+    return response.data.data;
   },
   getDocuments: async () => {
     const response = await axiosInstance.get<HRDocument[]>('/api/v1/documents');

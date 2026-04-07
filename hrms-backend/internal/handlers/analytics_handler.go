@@ -60,7 +60,7 @@ func GetAttendanceStats(c *gin.Context) {
 	// In a real system, we'd check for check_in > '09:15:00' for the current day or month
 	// For simplicity, we query Attendance model
 	err := database.DB.Model(&models.Attendance{}).
-		Where("strftime('%H:%M:%S', clock_in) > ?", "09:15:00").
+		Where("TO_CHAR(clock_in, 'HH24:MI:SS') > ?", models.LateArrivalThreshold).
 		Count(&lateCount).Error
 
 	if err != nil {
@@ -82,11 +82,11 @@ func GetPayrollExpenses(c *gin.Context) {
 
 	var results []Result
 	// Query to sum net amounts group by month
-	// Standard SQL/SQLite date handling
+	// PostgreSQL date handling
 	err := database.DB.Model(&models.Payslip{}).
-		Select("strftime('%m', generated_at) as month, sum(net_amount) as total").
-		Where("strftime('%Y', generated_at) = strftime('%Y', 'now')").
-		Group("month").
+		Select("TO_CHAR(generated_at, 'MM') as month, sum(net_amount) as total").
+		Where("EXTRACT(YEAR FROM generated_at) = EXTRACT(YEAR FROM CURRENT_DATE)").
+		Group("TO_CHAR(generated_at, 'MM')").
 		Order("month ASC").
 		Scan(&results).Error
 

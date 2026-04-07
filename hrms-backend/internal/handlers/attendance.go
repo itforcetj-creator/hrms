@@ -3,6 +3,7 @@ package handlers
 import (
 	"hrms-backend/database"
 	"hrms-backend/internal/models"
+	internalUtils "hrms-backend/internal/utils"
 	"net/http"
 	"strconv"
 	"time"
@@ -79,11 +80,27 @@ func ClockOut(c *gin.Context) {
 // GetAttendanceReports provides HR and Admin with daily attendance insights.
 func GetAttendanceReports(c *gin.Context) {
 	var reports []models.Attendance
-	if err := database.DB.Preload("User").Order("date desc, clock_in desc").Find(&reports).Error; err != nil {
+
+	// Pagination
+	var total int64
+	database.DB.Model(&models.Attendance{}).Count(&total)
+
+	paginationParams := internalUtils.PaginationParams{
+		Page:     internalUtils.ParseIntOrDefault(c.Query("page"), 1),
+		PageSize: internalUtils.ParseIntOrDefault(c.Query("page_size"), 20),
+	}
+	query := internalUtils.ApplyPagination(paginationParams, database.DB)
+
+	if err := query.Preload("User").Order("date desc, clock_in desc").Find(&reports).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch attendance reports"})
 		return
 	}
-	c.JSON(http.StatusOK, reports)
+	c.JSON(http.StatusOK, internalUtils.PaginatedResponse{
+		Data:     reports,
+		Total:    total,
+		Page:     paginationParams.Page,
+		PageSize: paginationParams.PageSize,
+	})
 }
 
 // GetDepartmentAttendanceMatrix returns a month's attendance matrix for a department.
@@ -200,10 +217,10 @@ func GetDepartmentAttendanceMatrix(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"month":        month,
-		"year":         year,
+		"month":         month,
+		"year":          year,
 		"days_in_month": daysInMonth,
-		"employees":    rows,
+		"employees":     rows,
 	})
 }
 

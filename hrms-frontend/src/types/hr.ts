@@ -1,12 +1,20 @@
 import { UserProfile } from "./auth";
 
+// Paginated API response wrapper
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface LeaveRequestPayload {
-  type: string;
+  type: "VACATION" | "SICK" | "UNPAID" | "MATERNITY";
   start_date: string;
   end_date: string;
-  reason: string;
+  reason?: string;
 }
 
 export interface LeaveRequest {
@@ -19,6 +27,7 @@ export interface LeaveRequest {
   days: number;
   reason: string;
   status: LeaveStatus;
+  workflow_instance_id?: number;
   approved_by?: number;
   created_at: string;
   updated_at?: string;

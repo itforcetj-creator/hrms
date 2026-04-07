@@ -65,10 +65,10 @@ func accrueLeave() (int64, error) {
 		}
 	}()
 
-	// Increment balance by 1.5 days for all active users
+	// Increment balance by configured daily leave accrual rate for all active users
 	result := tx.Model(&models.User{}).
 		Where("is_active = ?", true).
-		Update("leave_balance", gorm.Expr("leave_balance + ?", 1.5))
+		Update("leave_balance", gorm.Expr("leave_balance + ?", models.DailyLeaveAccrualRate))
 
 	if result.Error != nil {
 		tx.Rollback()
@@ -81,8 +81,8 @@ func accrueLeave() (int64, error) {
 		Action:    "ACCRUE_LEAVE_SYSTEM",
 		Table:     "users",
 		RecordID:  0,
-		NewValues: "leave_balance = leave_balance + 1.5",
-		Message:   "Monthly leave accrual (+1.5 days) applied to all active employees.",
+		NewValues: fmt.Sprintf("leave_balance = leave_balance + %.1f", models.DailyLeaveAccrualRate),
+		Message:   fmt.Sprintf("Monthly leave accrual (+%.1f days) applied to all active employees.", models.DailyLeaveAccrualRate),
 		CreatedAt: time.Now(),
 	}).Error; err != nil {
 		tx.Rollback()

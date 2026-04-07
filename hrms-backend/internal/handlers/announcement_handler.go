@@ -3,21 +3,37 @@ package handlers
 import (
 	"hrms-backend/database"
 	"hrms-backend/internal/models"
+	internalUtils "hrms-backend/internal/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-// GetAnnouncements returns all announcements
+// GetAnnouncements returns all announcements with pagination
 func GetAnnouncements(c *gin.Context) {
 	var announcements []models.Announcement
-	// Currently returns all, but could filter by Target and DepartmentID
-	database.DB.Preload("Author", func(db *gorm.DB) *gorm.DB {
+
+	// Pagination
+	var total int64
+	database.DB.Model(&models.Announcement{}).Count(&total)
+
+	paginationParams := internalUtils.PaginationParams{
+		Page:     internalUtils.ParseIntOrDefault(c.Query("page"), 1),
+		PageSize: internalUtils.ParseIntOrDefault(c.Query("page_size"), 20),
+	}
+	query := internalUtils.ApplyPagination(paginationParams, database.DB)
+
+	query.Preload("Author", func(db *gorm.DB) *gorm.DB {
 		return db.Select("id", "full_name", "email", "role") // secure author preload
 	}).Order("created_at desc").Find(&announcements)
 
-	c.JSON(http.StatusOK, announcements)
+	c.JSON(http.StatusOK, internalUtils.PaginatedResponse{
+		Data:     announcements,
+		Total:    total,
+		Page:     paginationParams.Page,
+		PageSize: paginationParams.PageSize,
+	})
 }
 
 // CreateAnnouncement creates a new announcement

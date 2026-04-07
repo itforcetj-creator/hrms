@@ -1,5 +1,5 @@
 import axiosInstance from '@/lib/axios';
-import { Notification, Announcement } from '@/types/hr';
+import { Notification, Announcement, PaginatedResponse } from '@/types/hr';
 
 export type AnnouncementInput = {
   title: string;
@@ -26,8 +26,8 @@ export const NotificationService = {
 
 export const AnnouncementService = {
   getAll: async () => {
-    const response = await axiosInstance.get<Announcement[]>('/api/v1/announcements');
-    return response.data;
+    const response = await axiosInstance.get<PaginatedResponse<Announcement>>('/api/v1/announcements');
+    return response.data.data;
   },
   create: async (data: AnnouncementInput) => {
     const response = await axiosInstance.post<Announcement>('/admin/v1/announcements', data);

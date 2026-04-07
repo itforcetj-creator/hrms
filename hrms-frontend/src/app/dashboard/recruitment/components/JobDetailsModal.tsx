@@ -13,7 +13,7 @@ interface JobDetailsModalProps {
   canManage: boolean;
   interviewNotes: Record<number, InterviewNote[]>;
   onAddNote: (candidateId: number, score: number, comments: string) => Promise<void>;
-  notesLoading: boolean;
+  notesLoading: Record<number, boolean>;
 }
 
 const JobDetailsModal = ({
@@ -127,7 +127,7 @@ const JobDetailsModal = ({
                               expandedId === candidate.id ? "bg-indigo-600 text-white shadow-md" : "bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20"
                             }`}
                           >
-                            {notesLoading && expandedId === candidate.id ? (
+                            {notesLoading[candidate.id] && expandedId === candidate.id ? (
                               <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                               <MessageSquare size={14} />
@@ -220,7 +220,7 @@ const JobDetailsModal = ({
                                         <div className="flex justify-end">
                                           <button
                                             onClick={() => handleAddNote(candidate.id)}
-                                            disabled={!newNote.comments.trim() || notesLoading}
+                                            disabled={!newNote.comments.trim() || notesLoading[candidate.id]}
                                             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
                                           >
                                             <Save size={16} />

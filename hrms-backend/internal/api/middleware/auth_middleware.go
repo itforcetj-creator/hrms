@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"hrms-backend/internal/config"
 	"hrms-backend/internal/models"
 	"net/http"
@@ -26,47 +27,60 @@ func AuthorizeRole(allowedRoles ...string) gin.HandlerFunc {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 			return getJWTSecret(), nil
 		})
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			userRole := claims["role"].(string)
-
-			// Check if role is authorized
-			authorized := false
-			for _, role := range allowedRoles {
-				if role == userRole {
-					authorized = true
-					break
-				}
-			}
-
-			if !authorized {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "You don't have permission"})
-				return
-			}
-
-			// Pass data to next handlers (with robust extraction)
-			userID, okID := claims["user_id"].(float64)
-			role, okRole := claims["role"].(string)
-
-			if !okID || !okRole {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
-				return
-			}
-
-			c.Set("user_id", uint(userID))
-			c.Set("role", role)
-
-			if deptID, ok := claims["department_id"].(float64); ok {
-				c.Set("department_id", uint(deptID))
-			}
-
-			c.Next()
-		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		if err != nil || !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			return
 		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
+			return
+		}
+
+		userRole, ok := claims["role"].(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
+			return
+		}
+
+		// Check if role is authorized
+		authorized := false
+		for _, role := range allowedRoles {
+			if role == userRole {
+				authorized = true
+				break
+			}
+		}
+
+		if !authorized {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "You don't have permission"})
+			return
+		}
+
+		// Pass data to next handlers (with robust extraction)
+		userID, okID := claims["user_id"].(float64)
+
+		if !okID {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
+			return
+		}
+
+		c.Set("user_id", uint(userID))
+		c.Set("role", userRole)
+
+		if deptID, ok := claims["department_id"].(float64); ok {
+			c.Set("department_id", uint(deptID))
+		}
+
+		c.Next()
 	}
 }
 
@@ -81,35 +95,45 @@ func AuthorizePermission(requiredPermission models.Permission) gin.HandlerFunc {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 			return getJWTSecret(), nil
 		})
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			// Pass data to next handlers (with robust extraction)
-			userID, okID := claims["user_id"].(float64)
-			role, okRole := claims["role"].(string)
-
-			if !okID || !okRole {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
-				return
-			}
-
-			if !models.HasPermission(role, requiredPermission) {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions for this action"})
-				return
-			}
-
-			c.Set("user_id", uint(userID))
-			c.Set("role", role)
-
-			if deptID, ok := claims["department_id"].(float64); ok {
-				c.Set("department_id", uint(deptID))
-			}
-
-			c.Next()
-		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		if err != nil || !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			return
 		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
+			return
+		}
+
+		// Pass data to next handlers (with robust extraction)
+		userID, okID := claims["user_id"].(float64)
+		role, okRole := claims["role"].(string)
+
+		if !okID || !okRole {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
+			return
+		}
+
+		if !models.HasPermission(role, requiredPermission) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions for this action"})
+			return
+		}
+
+		c.Set("user_id", uint(userID))
+		c.Set("role", role)
+
+		if deptID, ok := claims["department_id"].(float64); ok {
+			c.Set("department_id", uint(deptID))
+		}
+
+		c.Next()
 	}
 }

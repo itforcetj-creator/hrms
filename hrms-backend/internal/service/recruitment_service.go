@@ -42,8 +42,12 @@ func (s *RecruitmentService) FinalizeHire(candidateID uint, adminID uint, ip str
 
 	// 2. Create User Profile
 	// Default password for first login (should be changed later)
-	tempPass, _ := utils.HashPassword("Welcome2026!")
-	
+	tempPass, err := utils.HashPassword(models.DefaultCandidatePassword)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
 	newEmployee := models.User{
 		FullName:     candidate.FullName,
 		Email:        candidate.Email,
@@ -51,7 +55,7 @@ func (s *RecruitmentService) FinalizeHire(candidateID uint, adminID uint, ip str
 		Role:         models.RoleEmployee,
 		DepartmentID: models.UintPtr(candidate.JobOpening.DepartmentID),
 		IsActive:     true,
-		LeaveBalance: 20.0, // Initial balance
+		LeaveBalance: models.DefaultLeaveBalance,
 	}
 
 	if err := tx.Create(&newEmployee).Error; err != nil {
