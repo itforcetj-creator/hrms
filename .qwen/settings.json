@@ -4,7 +4,8 @@
       "Bash(mkdir *)",
       "Bash(npm run *)",
       "Bash(npx *)",
-      "Bash(findstr *)"
+      "Bash(findstr *)",
+      "Bash(go *)"
     ]
   },
   "$version": 3
