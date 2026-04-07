@@ -3,11 +3,18 @@ package utils
 import (
 	"time"
 
+	"hrms-backend/internal/config"
+
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtSecret = []byte("your_ultra_secret_key_123") // Change this to a secure key in production
+func getJWTSecret() []byte {
+	if config.AppConfig == nil {
+		config.Load()
+	}
+	return []byte(config.AppConfig.JWTSecret)
+}
 
 // Хешируем пароль
 func HashPassword(password string) (string, error) {
@@ -23,12 +30,16 @@ func CheckPasswordHash(password, hash string) bool {
 
 // Генерируем JWT токен
 func GenerateToken(userID uint, role string, departmentID uint) (string, error) {
+	expirationHours := time.Duration(24)
+	if config.AppConfig != nil {
+		expirationHours = time.Duration(config.AppConfig.JWTExpirationHours)
+	}
 	claims := jwt.MapClaims{
 		"user_id":       userID,
 		"role":          role,
 		"department_id": departmentID,
-		"exp":           time.Now().Add(time.Hour * 24).Unix(),
+		"exp":           time.Now().Add(time.Hour * expirationHours).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(getJWTSecret())
 }

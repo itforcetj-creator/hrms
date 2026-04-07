@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"hrms-backend/database"
 	_ "hrms-backend/docs"
 	"hrms-backend/internal/api/routes"
+	"hrms-backend/internal/config"
 	"hrms-backend/internal/utils"
 	"hrms-backend/internal/workers"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.uber.org/zap"
 )
 
 // @title HRMS API
@@ -27,14 +30,17 @@ func main() {
 	utils.InitLogger()
 	defer utils.Logger.Sync()
 
+	// 2. Load Configuration from .env / Environment Variables
+	cfg := config.Load()
+
 	database.Connect()
 	database.Seed()
 
-	// 2. Start Background Workers
+	// 3. Start Background Workers
 	workers.StartLeaveAccrualWorker()
 	workers.StartPayrollWorker()
 
-	// 3. Init Localization
+	// 4. Init Localization
 	utils.InitLocalization()
 
 	r := gin.Default()
@@ -54,6 +60,7 @@ func main() {
 	// 5. Swagger Documentation Endpoint
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	utils.Logger.Info("HRMS Backend Server Starting on :8080")
-	r.Run(":8080")
+	addr := fmt.Sprintf(":%s", cfg.ServerPort)
+	utils.Logger.Info("HRMS Backend Server Starting", zap.String("address", addr))
+	r.Run(addr)
 }

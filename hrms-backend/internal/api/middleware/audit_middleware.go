@@ -2,12 +2,15 @@ package middleware
 
 import (
 	"bytes"
+	"encoding/json"
 	"hrms-backend/database"
 	"hrms-backend/internal/models"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // AuditMiddleware captures every POST, PUT, PATCH, and DELETE request.
@@ -34,18 +37,44 @@ func AuditMiddleware() gin.HandlerFunc {
 		// If the request was successful, log it
 		if c.Writer.Status() < 400 {
 			userID := c.GetUint("user_id")
-			
+
+			// Try to extract user_id from token if not set in context
+			if userID == 0 {
+				authHeader := c.GetHeader("Authorization")
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+					if token, _, err := new(jwt.Parser).ParseUnverified(tokenStr, jwt.MapClaims{}); err == nil {
+						if claims, ok := token.Claims.(jwt.MapClaims); ok {
+							if uid, ok := claims["user_id"].(float64); ok {
+								userID = uint(uid)
+							}
+						}
+					}
+				}
+			}
+
+			// Build old values from request body
+			var oldValues string
+			if len(bodyBytes) > 0 {
+				var prettyJSON bytes.Buffer
+				if err := json.Indent(&prettyJSON, bodyBytes, "", "  "); err == nil {
+					oldValues = prettyJSON.String()
+				} else {
+					oldValues = string(bodyBytes)
+				}
+			}
+
 			log := models.AuditLog{
 				UserID:    userID,
 				Action:    c.Request.Method,
-				Table:     c.Request.URL.Path, // Using path as table alias for now
+				Table:     c.Request.URL.Path,
 				IPAddress: c.ClientIP(),
-				NewValues: string(bodyBytes),
-				Message:   "API Mutation Event",
+				NewValues: oldValues,
+				Message:   c.Request.Method + " " + c.Request.URL.Path,
 			}
 
-			// Save to database asynchronously to avoid blocking the user
-			go database.DB.Create(&log)
+			// Save synchronously to ensure data is not lost
+			database.DB.Create(&log)
 		}
 	}
 }

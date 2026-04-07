@@ -1,6 +1,9 @@
 package database
 
 import (
+	"fmt"
+
+	"hrms-backend/internal/config"
 	"hrms-backend/internal/models"
 	"hrms-backend/internal/utils"
 
@@ -12,7 +15,14 @@ import (
 var DB *gorm.DB
 
 func Connect() {
-	dsn := "host=localhost user=postgres password=2999 dbname=hrms port=5432 sslmode=disable"
+	cfg := config.AppConfig
+	if cfg == nil {
+		config.Load()
+		cfg = config.AppConfig
+	}
+
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
+		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode)
 	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		utils.Logger.Fatal("Failed to connect to database!", zap.Error(err))

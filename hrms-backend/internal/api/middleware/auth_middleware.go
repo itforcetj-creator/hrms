@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"hrms-backend/internal/config"
 	"hrms-backend/internal/models"
 	"net/http"
 	"strings"
@@ -8,6 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+func getJWTSecret() []byte {
+	if config.AppConfig == nil {
+		config.Load()
+	}
+	return []byte(config.AppConfig.JWTSecret)
+}
 
 func AuthorizeRole(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -19,12 +27,12 @@ func AuthorizeRole(allowedRoles ...string) gin.HandlerFunc {
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte("your_ultra_secret_key_123"), nil
+			return getJWTSecret(), nil
 		})
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 			userRole := claims["role"].(string)
-			
+
 			// Check if role is authorized
 			authorized := false
 			for _, role := range allowedRoles {
@@ -50,11 +58,11 @@ func AuthorizeRole(allowedRoles ...string) gin.HandlerFunc {
 
 			c.Set("user_id", uint(userID))
 			c.Set("role", role)
-			
+
 			if deptID, ok := claims["department_id"].(float64); ok {
 				c.Set("department_id", uint(deptID))
 			}
-			
+
 			c.Next()
 		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
@@ -62,7 +70,7 @@ func AuthorizeRole(allowedRoles ...string) gin.HandlerFunc {
 	}
 }
 
-// AuthorizePermission checks if the user's role has the required permission, 
+// AuthorizePermission checks if the user's role has the required permission,
 // taking role inheritance into account.
 func AuthorizePermission(requiredPermission models.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -74,7 +82,7 @@ func AuthorizePermission(requiredPermission models.Permission) gin.HandlerFunc {
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte("your_ultra_secret_key_123"), nil
+			return getJWTSecret(), nil
 		})
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
@@ -94,11 +102,11 @@ func AuthorizePermission(requiredPermission models.Permission) gin.HandlerFunc {
 
 			c.Set("user_id", uint(userID))
 			c.Set("role", role)
-			
+
 			if deptID, ok := claims["department_id"].(float64); ok {
 				c.Set("department_id", uint(deptID))
 			}
-			
+
 			c.Next()
 		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})

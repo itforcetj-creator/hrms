@@ -90,6 +90,9 @@ func SetupRoutes(r *gin.Engine) {
 	hrOps := adminV1.Group("/")
 	hrOps.Use(middleware.AuthorizePermission(models.PermissionManagePayroll))
 	{
+		// Audit Logs
+		hrOps.GET("/audit/logs", handlers.GetAuditLogs)
+
 		// Asset Management
 		hrOps.GET("/assets", handlers.GetAllAssets)
 		hrOps.POST("/assets", handlers.CreateAsset)
