@@ -11,13 +11,20 @@ const axiosInstance = axios.create({
   },
 });
 
-// Request Interceptor: Attach Token
+// Request Interceptor: Attach Token + CSRF
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = Cookies.get('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Attach CSRF token from cookie to header
+    const csrfToken = Cookies.get('XSRF-TOKEN');
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

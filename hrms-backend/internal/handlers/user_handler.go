@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-
 func GetEmployeeProfile(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
@@ -118,7 +117,7 @@ func UpdateUser(c *gin.Context) {
 func OffboardUser(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
-	
+
 	tx := database.DB.Begin()
 	if err := tx.First(&user, id).Error; err != nil {
 		tx.Rollback()
@@ -177,16 +176,16 @@ func OffboardUser(c *gin.Context) {
 		Action:    "TERMINATE_USER",
 		Table:     "users",
 		RecordID:  user.ID,
-		NewValues: string(input.ExitType) + " | Settlement: " + string(rune(finalPayout)),
+		NewValues: fmt.Sprintf("%s | Settlement: %.2f", input.ExitType, finalPayout),
 		CreatedAt: time.Now(),
 	})
 
 	tx.Commit()
 	internalUtils.Logger.Info("Employee offboarded successfully", zap.Uint("user_id", user.ID), zap.Float64("payout", finalPayout))
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Employee successfully offboarded",
-		"payout":        finalPayout,
-		"exit_record":  exit,
+		"message":     "Employee successfully offboarded",
+		"payout":      finalPayout,
+		"exit_record": exit,
 	})
 }
 
@@ -228,7 +227,7 @@ func GenerateContract(c *gin.Context) {
 	}
 
 	fileName := fmt.Sprintf("Contract_%s_%s.pdf", user.FullName, time.Now().Format("2006-01-02"))
-	
+
 	c.Header("Content-Disposition", "attachment; filename="+fileName)
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Length", strconv.Itoa(len(pdfBytes)))

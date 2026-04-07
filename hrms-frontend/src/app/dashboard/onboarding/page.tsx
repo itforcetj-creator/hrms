@@ -6,38 +6,67 @@ import {
 } from "lucide-react";
 import { OnboardingTask } from "@/types/hr";
 import { useAuth } from "@/context/AuthContext";
-
-// Mock data — wire to real backend when available
-const mockTasks: OnboardingTask[] = [
-  { id: 1, user_id: 0, title: "Complete HR paperwork & contracts", description: "Sign employment contract, NDA, and company policy acknowledgements.", due_date: "2026-04-07", is_completed: true },
-  { id: 2, user_id: 0, title: "IT account setup & equipment", description: "Receive laptop, setup email, VPN, Slack and two-factor authentication.", due_date: "2026-04-07", is_completed: true },
-  { id: 3, user_id: 0, title: "Meet your team & manager", description: "Schedule 30-minute 1:1 intro calls with each team member.", due_date: "2026-04-09", is_completed: false },
-  { id: 4, user_id: 0, title: "Complete security & compliance training", description: "Finish mandatory GDPR and cybersecurity awareness modules.", due_date: "2026-04-11", is_completed: false },
-  { id: 5, user_id: 0, title: "Set up first 30-60-90 day goals", description: "Work with your manager to document your onboarding goals.", due_date: "2026-04-14", is_completed: false },
-  { id: 6, user_id: 0, title: "Shadow a senior colleague for a day", description: "Spend a full day observing how the team handles day-to-day operations.", due_date: "2026-04-16", is_completed: false },
-];
+import { OnboardingService, CreateOnboardingTaskPayload } from "@/services/onboarding.service";
 
 export default function OnboardingPage() {
   const { user } = useAuth();
-  const [tasks, setTasks] = useState<OnboardingTask[]>(mockTasks);
-  const [loading, setLoading] = useState(false);
+  const [tasks, setTasks] = useState<OnboardingTask[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", due_date: "" });
+  const [saving, setSaving] = useState(false);
 
   const isHROrAdmin = user?.role === "ADMIN" || user?.role === "HR";
   const completed = tasks.filter(t => t.is_completed).length;
   const progress = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
 
-  const toggleTask = (id: number) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: !t.is_completed } : t));
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const data = await OnboardingService.getMyTasks();
+      setTasks(data);
+    } catch (error) {
+      console.error("Failed to fetch onboarding tasks:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const toggleTask = async (id: number) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    try {
+      const updated = await OnboardingService.updateTask(id, { is_completed: !task.is_completed });
+      setTasks(prev => prev.map(t => t.id === id ? updated : t));
+    } catch (error) {
+      console.error("Failed to toggle task:", error);
+    }
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newTask: OnboardingTask = { id: Date.now(), user_id: 0, ...form, is_completed: false };
-    setTasks(prev => [...prev, newTask]);
-    setShowModal(false);
-    setForm({ title: "", description: "", due_date: "" });
+    if (!user?.id) return;
+    setSaving(true);
+    try {
+      const payload: CreateOnboardingTaskPayload = {
+        user_id: user.id,
+        title: form.title,
+        description: form.description,
+        due_date: form.due_date,
+      };
+      const newTask = await OnboardingService.createTask(payload);
+      setTasks(prev => [...prev, newTask]);
+      setShowModal(false);
+      setForm({ title: "", description: "", due_date: "" });
+    } catch (error) {
+      console.error("Failed to create task:", error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const isOverdue = (dueDate: string, completed: boolean) => {
@@ -56,7 +85,8 @@ export default function OnboardingPage() {
           {isHROrAdmin && (
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-all"
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={16} />
               Add Task
@@ -92,6 +122,19 @@ export default function OnboardingPage() {
         </div>
 
         {/* Tasks List */}
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader size={32} className="text-indigo-400 animate-spin" />
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center py-16">
+            <ClipboardList size={48} className="mx-auto text-slate-600 mb-4" />
+            <p className="text-slate-400 text-lg">No onboarding tasks yet</p>
+            <p className="text-slate-500 text-sm mt-1">
+              {isHROrAdmin ? "Click 'Add Task' to create one" : "Contact your HR manager to set up tasks"}
+            </p>
+          </div>
+        ) : (
         <div className="space-y-3">
           {tasks.map((task, idx) => {
             const overdue = isOverdue(task.due_date, task.is_completed);
@@ -132,6 +175,7 @@ export default function OnboardingPage() {
             );
           })}
         </div>
+        )}
       </motion.div>
 
       {/* Add Task Modal */}
@@ -186,8 +230,19 @@ export default function OnboardingPage() {
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500"
                   />
                 </div>
-                <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-all">
-                  Add Task
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {saving ? (
+                    <>
+                      <Loader size={16} className="animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Task"
+                  )}
                 </button>
               </form>
             </motion.div>

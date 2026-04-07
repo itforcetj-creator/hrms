@@ -56,6 +56,35 @@ func normalizeDate(value time.Time) time.Time {
 	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }
 
+// GetLeaveBalance returns the current leave balance for the authenticated user
+func GetLeaveBalance(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	var user models.User
+	if err := database.DB.Select("id", "full_name", "leave_balance", "hire_date").First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Calculate used leave days this year
+	currentYear := time.Now().Year()
+	var usedDays float64
+	database.DB.Model(&models.LeaveRequest{}).
+		Where("user_id = ? AND status = ? AND EXTRACT(YEAR FROM start_date) = ?", userID, models.StatusApproved, currentYear).
+		Select("COALESCE(SUM(days), 0)").
+		Scan(&usedDays)
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":         user.ID,
+		"full_name":       user.FullName,
+		"leave_balance":   user.LeaveBalance,
+		"used_this_year":  usedDays,
+		"total_accrued":   user.LeaveBalance + usedDays,
+		"current_year":    currentYear,
+		"monthly_accrual": 1.5,
+	})
+}
+
 func calculateRequestedDays(startDate, endDate time.Time) float64 {
 	return endDate.Sub(startDate).Hours()/24 + 1
 }
@@ -357,5 +386,19 @@ func ApproveLeave(c *gin.Context) {
 
 	leave.Status = newStatus
 	leave.ApprovedBy = &approverID
+
+	// Send email notification (non-blocking)
+	go func() {
+		var user models.User
+		if err := database.DB.Select("email").First(&user, leave.UserID).Error; err == nil && user.Email != "" {
+			emailSvc := utils.GetEmailService()
+			startStr := leave.StartDate.Format("02 Jan 2006")
+			endStr := leave.EndDate.Format("02 Jan 2006")
+			if err := emailSvc.SendLeaveStatusEmail(user.Email, leave.Type, newStatus, startStr, endStr); err != nil {
+				utils.Logger.Error("Failed to send leave status email", zap.Error(err))
+			}
+		}
+	}()
+
 	c.JSON(http.StatusOK, leave)
 }

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"hrms-backend/database"
+	"hrms-backend/internal/config"
 	"hrms-backend/internal/models"
 	"hrms-backend/internal/storage"
 	"hrms-backend/internal/utils"
@@ -16,6 +18,13 @@ import (
 )
 
 var FileStorage storage.FileStorage = storage.NewLocalStorage("uploads")
+
+func getMaxUploadSize() int64 {
+	if config.AppConfig == nil {
+		config.Load()
+	}
+	return int64(config.AppConfig.MaxUploadSizeMB) * 1024 * 1024 // MB to bytes
+}
 
 func UploadDocument(c *gin.Context) {
 	currentUserID := c.GetUint("user_id")
@@ -53,6 +62,17 @@ func UploadDocument(c *gin.Context) {
 	fileHeader, err := c.FormFile("document")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
+		return
+	}
+
+	// Check file size limit
+	maxSize := getMaxUploadSize()
+	if fileHeader.Size > maxSize {
+		maxSizeMB := float64(maxSize) / (1024 * 1024)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("File size exceeds maximum allowed size (%.1f MB). Uploaded: %.1f MB",
+				maxSizeMB, float64(fileHeader.Size)/(1024*1024)),
+		})
 		return
 	}
 

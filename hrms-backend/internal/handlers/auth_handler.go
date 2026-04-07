@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"hrms-backend/database"
 	"hrms-backend/internal/models"
 	"hrms-backend/utils"
@@ -8,6 +10,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func generateCSRFTokenForLogin() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(b)
+}
 
 func Login(c *gin.Context) {
 	var input struct {
@@ -36,7 +46,12 @@ func Login(c *gin.Context) {
 		deptID = *user.DepartmentID
 	}
 	token, _ := utils.GenerateToken(user.ID, user.Role, deptID)
-	c.JSON(http.StatusOK, gin.H{"token": token, "role": user.Role, "user": user})
+
+	// Set CSRF token cookie so subsequent requests have it
+	csrfToken := generateCSRFTokenForLogin()
+	c.SetCookie("XSRF-TOKEN", csrfToken, 3600*24, "/", "", false, true)
+
+	c.JSON(http.StatusOK, gin.H{"token": token, "role": user.Role, "user": user, "csrf_token": csrfToken})
 }
 
 // GetMe returns the current authenticated user's information

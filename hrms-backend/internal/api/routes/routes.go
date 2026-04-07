@@ -35,6 +35,7 @@ func SetupRoutes(r *gin.Engine) {
 		// Leave
 		authGroup.POST("/leave/request", handlers.RequestLeave)
 		authGroup.GET("/leave/requests", handlers.GetLeaveRequests)
+		authGroup.GET("/leave/balance", handlers.GetLeaveBalance)
 		authGroup.PATCH("/leave/approve/:id", handlers.ApproveLeave)
 
 		// Attendance
@@ -43,6 +44,12 @@ func SetupRoutes(r *gin.Engine) {
 
 		// Assets (Self)
 		authGroup.GET("/assets/my", handlers.GetMyAssets)
+
+		// Onboarding (Self)
+		authGroup.GET("/onboarding/tasks", handlers.GetOnboardingTasks)
+		authGroup.POST("/onboarding/tasks", handlers.CreateOnboardingTask)
+		authGroup.PATCH("/onboarding/tasks/:id", handlers.UpdateOnboardingTask)
+		authGroup.DELETE("/onboarding/tasks/:id", handlers.DeleteOnboardingTask)
 
 		// Recruitment (Self/Employee)
 		authGroup.GET("/recruitment/jobs", handlers.GetJobOpenings)
@@ -119,13 +126,16 @@ func SetupRoutes(r *gin.Engine) {
 		hrOps.PATCH("/users/:id", handlers.UpdateUser)
 		hrOps.DELETE("/users/:id", handlers.DeleteUser)
 		hrOps.POST("/users/:id/offboard", handlers.OffboardUser)
+		hrOps.GET("/users/:id/onboarding/tasks", handlers.GetOnboardingTasksForUser)
 		hrOps.GET("/users/:id/contract", handlers.GenerateContract)
 		hrOps.GET("/documents", handlers.GetDocumentsByUsers)
 		hrOps.GET("/documents/:id/download", handlers.DownloadDocument)
 
 		// Company Structure
+		hrOps.GET("/departments", handlers.GetDepartments)
 		hrOps.POST("/departments", handlers.CreateDepartment)
 		hrOps.PATCH("/departments/:id", handlers.UpdateDepartment)
+		hrOps.DELETE("/departments/:id", handlers.DeleteDepartment)
 
 		// Leave Approval
 		hrOps.PATCH("/leave/approve/:id", handlers.ApproveLeave)

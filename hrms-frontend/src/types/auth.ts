@@ -25,6 +25,7 @@ export interface AuthResponse {
   token: string;
   user: UserProfile;
   message?: string;
+  csrf_token?: string;
 }
 
 export interface LoginCredentials {

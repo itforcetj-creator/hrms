@@ -11,7 +11,7 @@ import (
 
 // GetAuditLogs returns audit logs with optional filtering
 func GetAuditLogs(c *gin.Context) {
-	type query struct {
+	type auditQuery struct {
 		Page     int    `form:"page,default=1"`
 		PageSize int    `form:"page_size,default=50"`
 		UserID   string `form:"user_id"`
@@ -19,7 +19,7 @@ func GetAuditLogs(c *gin.Context) {
 		Table    string `form:"table"`
 	}
 
-	var q query
+	var q auditQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters"})
 		return
@@ -32,35 +32,35 @@ func GetAuditLogs(c *gin.Context) {
 		q.PageSize = 50
 	}
 
-	query := database.DB.Model(&models.AuditLog{})
+	dbQuery := database.DB.Model(&models.AuditLog{})
 
 	// Optional filters
 	if q.UserID != "" {
 		if uid, err := strconv.ParseUint(q.UserID, 10, 32); err == nil {
-			query = query.Where("user_id = ?", uid)
+			dbQuery = dbQuery.Where("user_id = ?", uid)
 		}
 	}
 	if q.Action != "" {
-		query = query.Where("action = ?", q.Action)
+		dbQuery = dbQuery.Where("action = ?", q.Action)
 	}
 	if q.Table != "" {
-		query = query.Where("table LIKE ?", "%"+q.Table+"%")
+		dbQuery = dbQuery.Where("table LIKE ?", "%"+q.Table+"%")
 	}
 
 	var total int64
-	query.Count(&total)
+	dbQuery.Count(&total)
 
 	var logs []models.AuditLog
 	offset := (q.Page - 1) * q.PageSize
-	if err := query.Order("created_at DESC").Offset(offset).Limit(q.PageSize).Find(&logs).Error; err != nil {
+	if err := dbQuery.Order("created_at DESC").Offset(offset).Limit(q.PageSize).Find(&logs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve audit logs"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"logs":   logs,
-		"total":  total,
-		"page":   q.Page,
+		"logs":      logs,
+		"total":     total,
+		"page":      q.Page,
 		"page_size": q.PageSize,
 	})
 }

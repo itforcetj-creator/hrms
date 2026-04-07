@@ -189,3 +189,28 @@ func GetPositions(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, positions)
 }
+
+// DeleteDepartment deletes a department (only if no employees are assigned)
+func DeleteDepartment(c *gin.Context) {
+	var department models.Department
+	if err := database.DB.First(&department, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "department not found"})
+		return
+	}
+
+	// Check if any users are assigned to this department
+	var count int64
+	database.DB.Model(&models.User{}).Where("department_id = ?", department.ID).Count(&count)
+	if count > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete department with assigned employees"})
+		return
+	}
+
+	if err := database.DB.Delete(&department).Error; err != nil {
+		utils.Logger.Error("Failed to delete department", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete department"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "department deleted successfully"})
+}

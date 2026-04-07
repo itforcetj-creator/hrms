@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"hrms-backend/database"
 	"hrms-backend/internal/models"
 	"hrms-backend/internal/utils"
@@ -34,7 +35,7 @@ func GenerateMonthlyPayslips(c *gin.Context) {
 	for _, user := range users {
 		var salary models.SalaryConfiguration
 		if err := tx.Where("user_id = ?", user.ID).First(&salary).Error; err != nil {
-			continue 
+			continue
 		}
 
 		// LWOP Deductions logic (Sprint 2 Requirement)
@@ -43,7 +44,7 @@ func GenerateMonthlyPayslips(c *gin.Context) {
 		month_end := month_start.AddDate(0, 1, -1)
 
 		tx.Model(&models.LeaveRequest{}).
-			Where("user_id = ? AND status = ? AND type = ? AND start_date >= ? AND end_date <= ?", 
+			Where("user_id = ? AND status = ? AND type = ? AND start_date >= ? AND end_date <= ?",
 				user.ID, models.StatusApproved, "Unpaid", month_start, month_end).
 			Select("COALESCE(SUM(EXTRACT(DAY FROM end_date - start_date) + 1), 0)").
 			Scan(&unpaidLeaveDays)
@@ -87,13 +88,13 @@ func GenerateMonthlyPayslips(c *gin.Context) {
 // ManageSalaries configures base pay, encrypts sensitive data, and records history.
 func ManageSalaries(c *gin.Context) {
 	var input struct {
-		UserID          uint    `json:"user_id" binding:"required"`
-		BaseSalary      float64 `json:"base_salary" binding:"required"`
-		Currency        string  `json:"currency"`
-		BankName        string  `json:"bank_name"`
-		AccountNumber   string  `json:"account_number"`
-		TaxID           string  `json:"tax_id"`
-		Reason          string  `json:"reason"` // To explain the salary change
+		UserID        uint    `json:"user_id" binding:"required"`
+		BaseSalary    float64 `json:"base_salary" binding:"required"`
+		Currency      string  `json:"currency"`
+		BankName      string  `json:"bank_name"`
+		AccountNumber string  `json:"account_number"`
+		TaxID         string  `json:"tax_id"`
+		Reason        string  `json:"reason"` // To explain the salary change
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -150,7 +151,7 @@ func ManageSalaries(c *gin.Context) {
 		Action:    "MANAGE_SALARY",
 		Table:     "salary_configurations",
 		RecordID:  input.UserID,
-		NewValues: "Base salary updated to " + string(rune(input.BaseSalary)),
+		NewValues: fmt.Sprintf("Base salary updated to %.2f", input.BaseSalary),
 		CreatedAt: time.Now(),
 	})
 
