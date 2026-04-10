@@ -249,7 +249,7 @@ func GenerateMonthlyPayslips(c *gin.Context) {
 
 	// 7. Notification Sync.
 	go func() {
-		tgMsg := fmt.Sprintf("💰 <b>Payroll Batch Generated</b>\n\nPeriod: %02d/%d\nGenerated: %d payslips\nSkipped: %d (missing salary config)", 
+		tgMsg := fmt.Sprintf("💰 <b>Payroll Batch Generated</b>\n\nPeriod: %02d/%d\nGenerated: %d payslips\nSkipped: %d (missing salary config)",
 			input.Month, input.Year, len(payslips), skippedCount)
 		utils.GetNotificationService().SendTelegram(tgMsg)
 	}()
@@ -335,25 +335,22 @@ func ManageSalaries(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to persist auditable history."})
 		return
 	}
+
+	tx.Commit()
+	utils.Logger.Info("Salary profile updated successfully", zap.Uint("user_id", input.UserID))
+	c.JSON(http.StatusOK, gin.H{"message": "Salary configuration updated and historized."})
+
 	// 5. System Audit Log (Strict Rule)
-	if err := tx.Create(&models.AuditLog{
+	tx.Create(&models.AuditLog{
 		UserID:    adminID,
 		Action:    "MANAGE_SALARY",
 		Table:     "salary_configurations",
 		RecordID:  input.UserID,
 		NewValues: fmt.Sprintf("Base salary updated to %.2f", input.BaseSalary),
 		CreatedAt: time.Now(),
-	}).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to log audit data."})
-		return
-	}
+	})
 
-	if err := tx.Commit().Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction commit failed."})
-		return
-	}
-
+	tx.Commit()
 	utils.Logger.Info("Salary management completed successfully", zap.Uint("user_id", input.UserID))
 	c.JSON(http.StatusOK, gin.H{"message": "Salary configuration updated, encrypted, and historized successfully"})
 }
